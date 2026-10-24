@@ -151,4 +151,13 @@ module.exports = [
     meanings: ['kirja'],
     forbidden: ['compromised'],
   },
+  {
+    id: 'tulipunkt-context-regression',
+    word: 'tulipunktides',
+    context:
+      "Ka teistes eelmise nädala tulipunktides, nagu Marseille'is ja Lyonis, avanes sarnane pilt – meeleavalduste äärealadel toimusid küll mõned kokkupõrked, kuid need polnud ligilähedaseltki sama ulatuslikud kui möödunud nädalal.",
+    headwords: ['tulipunkt'],
+    meanings: ['polttopiste', 'keskiö', 'levottomuus', 'pesäke', 'kuuma piste'],
+    contextTranslationRequired: ['marseille', 'lyon'],
+  },
 ];

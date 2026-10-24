@@ -16,7 +16,7 @@ test('translation always uses OpenRouter, Finnish, bounded output, and no redire
   assert.equal(req.options.credentials, 'omit');
   assert.equal(req.options.headers.Authorization, 'Bearer test-only');
   const body = JSON.parse(req.options.body);
-  assert.equal(body.max_tokens, 600);
+  assert.equal(body.max_tokens, 900);
   assert.match(body.messages[0].content, /Finnish/);
   assert.match(body.messages[0].content, /untrusted quoted data/);
   assert.deepEqual(JSON.parse(body.messages[1].content), {
@@ -48,6 +48,29 @@ test('strict parsing rejects malformed, mistyped, and oversized output', () => {
     translation: 'kirja',
     forms: null,
     note: null,
-    example: null,
+    contextTranslation: null,
   });
+});
+
+test('sentence translation is explicit and legacy copied examples cannot enter parsed output', () => {
+  const req = T.buildAiRequest({
+    apiKey: 'test',
+    model: 'test',
+    word: 'tulipunktides',
+    context: 'Ka teistes tulipunktides.',
+  });
+  assert.match(
+    JSON.parse(req.options.body).messages[0].content,
+    /contextTranslation: translate the supplied sentence fully/,
+  );
+  const parsed = T.parseAiResponse(
+    wrap({
+      headword: 'tulipunkt',
+      translation: 'polttopiste',
+      contextTranslation: 'Myös muissa polttopisteissä.',
+      example: 'Ka teistes tulipunktides.',
+    }),
+  );
+  assert.equal(parsed.contextTranslation, 'Myös muissa polttopisteissä.');
+  assert.equal(parsed.example, undefined);
 });

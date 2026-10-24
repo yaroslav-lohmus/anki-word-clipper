@@ -177,6 +177,7 @@
       <label for="wc-deck">Deck</label><select id="wc-deck" class="wc-deck"></select>
       <details class="wc-options"><summary>More options</summary>
         <label for="wc-sentence">Original sentence</label><textarea id="wc-sentence" class="wc-ctx" rows="2"></textarea>
+        <label for="wc-context-translation">Finnish sentence</label><textarea id="wc-context-translation" class="wc-context-tr" rows="2"></textarea>
         <label for="wc-type">Card type</label><select id="wc-type" class="wc-type">
           <option value="basic">Word → meaning</option><option value="reverse">Both directions</option>
           <option value="reverseOnly">Meaning → word</option><option value="cloze">Missing word</option>
@@ -210,6 +211,9 @@
 
     // context textarea grows to its content while focused
     const ctxInput = form.querySelector('.wc-ctx');
+    ctxInput.addEventListener('input', () => {
+      q('.wc-context-tr').value = '';
+    });
     ctxInput.addEventListener('focus', () => {
       ctxInput.style.height = 'auto';
       ctxInput.style.height = `${Math.min(ctxInput.scrollHeight + 2, 180)}px`;
@@ -316,10 +320,11 @@
     currentCapture = cap;
     trEdited = false;
     aiForms = '';
-    aiExample = '';
+    aiContextTranslation = '';
     q('.wc-word').value = cap.word;
     q('.wc-tr').value = '';
     q('.wc-ctx').value = cap.context;
+    q('.wc-context-tr').value = '';
     q('.wc-options').open = false;
     q('.wc-note').textContent = '';
     setStatus('');
@@ -370,7 +375,7 @@
   let translateSeq = 0;
   let trEdited = false; // user typed their own translation — never overwrite it
   let aiForms = ''; // verb principal forms from the AI — saved into the Forms field
-  let aiExample = ''; // optional AI example sentence — saved into the Example field
+  let aiContextTranslation = ''; // Finnish translation of the original sentence
   async function requestTranslation(word, avoid = '') {
     if (!word?.trim()) return;
     const seq = ++translateSeq;
@@ -394,7 +399,8 @@
     if (!trEdited) tr.value = res.translation;
     if (res.provider === 'ai') {
       aiForms = res.forms ?? '';
-      aiExample = res.example ?? '';
+      aiContextTranslation = res.contextTranslation ?? '';
+      q('.wc-context-tr').value = aiContextTranslation;
       // Keep the original inflection in matchWord and save the dictionary form.
       if (res.headword && !trEdited) q('.wc-word').value = res.headword;
       q('.wc-note').textContent = [aiForms, res.note].filter(Boolean).join(' · ');
@@ -422,7 +428,7 @@
       context: q('.wc-ctx').value,
       source: currentCapture?.source ?? `${document.title} — ${location.href}`,
       forms: aiForms,
-      example: aiExample,
+      contextTranslation: q('.wc-context-tr').value,
       cardType,
       deck: q('.wc-deck').value,
       allowDuplicate,

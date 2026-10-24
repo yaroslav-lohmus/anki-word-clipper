@@ -97,6 +97,7 @@ test('MODEL_DEF has conditional reverse template and exact fields', () => {
     'Forms',
     'Example',
     'OnlyReverse',
+    'ContextTranslation',
   ]);
   assert.equal(A.MODEL_DEF.modelName, 'Word Clipper');
   assert.equal(A.MODEL_DEF.cardTemplates.length, 2);
@@ -173,7 +174,7 @@ test('buildNoteFields stores verb forms in the Forms field', () => {
   );
 });
 
-test('buildNoteFields stores example in the Example field', () => {
+test('buildNoteFields stores Finnish sentence separately and ignores old examples', () => {
   const f = A.buildNoteFields({
     word: 'Haus',
     translation: '',
@@ -181,8 +182,10 @@ test('buildNoteFields stores example in the Example field', () => {
     source: '',
     reverse: false,
     example: 'Das Haus ist alt.',
+    contextTranslation: 'Talo on vanha.',
   });
-  assert.equal(f.Example, 'Das Haus ist alt.');
+  assert.equal(f.Example, '');
+  assert.equal(f.ContextTranslation, 'Talo on vanha.');
 });
 
 test('reverse-only: forward template is suppressed via OnlyReverse', () => {
@@ -204,4 +207,30 @@ test('reverse-only: forward template is suppressed via OnlyReverse', () => {
       .OnlyReverse,
     '',
   );
+});
+
+test('templates never render legacy examples and suppress untranslated duplicate context', () => {
+  for (const def of [A.buildModelDef(), A.buildClozeModelDef()]) {
+    assert.ok(!JSON.stringify(def.cardTemplates).includes('{{Example}}'));
+    assert.ok(JSON.stringify(def.cardTemplates).includes('{{ContextTranslation}}'));
+  }
+  const f = A.buildNoteFields({
+    word: 'tulipunkt',
+    translation: 'polttopiste',
+    context: 'Ka teistes tulipunktides.',
+    contextTranslation: '  Ka teistes   tulipunktides.  ',
+  });
+  assert.equal(f.ContextTranslation, '');
+});
+
+test('whole-sentence cards do not repeat their front or Finnish meaning on the answer', () => {
+  const f = A.buildNoteFields({
+    word: 'Homme sajab vihma.',
+    context: 'Homme sajab vihma.',
+    translation: 'Huomenna sataa vettä.',
+    contextTranslation: 'Huomenna sataa vettä.',
+  });
+  assert.equal(f.Context, '');
+  assert.equal(f.ContextTranslation, '');
+  assert.equal(f.Translation, 'Huomenna sataa vettä.');
 });

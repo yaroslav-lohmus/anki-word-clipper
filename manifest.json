@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Anki Word Clipper",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Save Estonian words from websites to Anki with contextual Finnish translations via OpenRouter.",
   "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
   "host_permissions": ["http://127.0.0.1:8765/*", "https://openrouter.ai/*"],

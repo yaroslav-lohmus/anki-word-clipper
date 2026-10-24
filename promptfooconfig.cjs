@@ -19,6 +19,8 @@ module.exports = {
   tests: cases.map(({ id, word, context, wide = '', ...expectations }) => ({
     description: id,
     vars: { word, context, wide },
-    assert: [{ type: 'javascript', value: (output) => grade(output, expectations) }],
+    assert: [
+      { type: 'javascript', value: (output) => grade(output, { ...expectations, context }) },
+    ],
   })),
 };

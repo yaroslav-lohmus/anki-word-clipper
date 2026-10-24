@@ -9,7 +9,7 @@ const CARD_CSS = `
 .context b { color: #2fb890; }
 .source { margin-top: 1.4em; font-size: .5em; opacity: .4; word-break: break-all; }
 .forms { margin-top: .4em; font-size: .6em; opacity: .65; }
-.example { margin-top: .5em; font-size: .7em; opacity: .8; font-style: italic; }
+.context-translation { margin-top: .5em; font-size: .7em; opacity: .8; font-style: italic; }
 `.trim();
 
 function buildModelDef() {
@@ -25,6 +25,7 @@ function buildModelDef() {
       'Forms',
       'Example',
       'OnlyReverse',
+      'ContextTranslation',
     ],
     css: CARD_CSS,
     isCloze: false,
@@ -33,12 +34,12 @@ function buildModelDef() {
         Name: 'Word → Translation',
         // {{^OnlyReverse}} suppresses the forward card for reverse-only notes
         Front: `{{^OnlyReverse}}<div class="word">{{Word}}</div>{{/OnlyReverse}}`,
-        Back: `{{FrontSide}}<hr id="answer"><div class="translation">{{Translation}}</div><div class="forms">{{Forms}}</div><div class="context">{{Context}}</div><div class="example">{{Example}}</div>`,
+        Back: `{{FrontSide}}<hr id="answer"><div class="translation">{{Translation}}</div><div class="forms">{{Forms}}</div><div class="context">{{Context}}</div>{{#ContextTranslation}}<div class="context-translation" lang="fi">{{ContextTranslation}}</div>{{/ContextTranslation}}`,
       },
       {
         Name: 'Translation → Word',
         Front: `{{#AddReverse}}<div class="word">{{Translation}}</div>{{/AddReverse}}`,
-        Back: `{{FrontSide}}<hr id="answer"><div class="translation">{{Word}}</div><div class="forms">{{Forms}}</div><div class="context">{{Context}}</div><div class="example">{{Example}}</div>`,
+        Back: `{{FrontSide}}<hr id="answer"><div class="translation">{{Word}}</div><div class="forms">{{Forms}}</div><div class="context">{{Context}}</div>{{#ContextTranslation}}<div class="context-translation" lang="fi">{{ContextTranslation}}</div>{{/ContextTranslation}}`,
       },
     ],
   };
@@ -50,14 +51,14 @@ const CLOZE_MODEL_NAME = 'Word Clipper Cloze';
 function buildClozeModelDef() {
   return {
     modelName: CLOZE_MODEL_NAME,
-    inOrderFields: ['Text', 'Translation', 'Source'],
+    inOrderFields: ['Text', 'Translation', 'Source', 'ContextTranslation'],
     css: `${CARD_CSS}\n.cloze { color: #2fb890; font-weight: bold; }`,
     isCloze: true,
     cardTemplates: [
       {
         Name: 'Cloze',
         Front: `<div class="context">{{cloze:Text}}</div>`,
-        Back: `<div class="context">{{cloze:Text}}</div><hr id="answer"><div class="translation">{{Translation}}</div>`,
+        Back: `<div class="context">{{cloze:Text}}</div><hr id="answer"><div class="translation">{{Translation}}</div>{{#ContextTranslation}}<div class="context-translation" lang="fi">{{ContextTranslation}}</div>{{/ContextTranslation}}`,
       },
     ],
   };
@@ -86,6 +87,22 @@ function boldWord(contextEscaped, wordEscaped) {
 
 // matchWord: the text as it appeared on the page (for bolding/cloze) when
 // `word` was normalized to a dictionary headword by the AI provider.
+function contextMeaning(translation, original, wordMeaning) {
+  const clean = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase('et');
+  // Never show a second copy of the source sentence, even if the model ignores instructions.
+  if (
+    !clean(translation) ||
+    clean(translation) === clean(original) ||
+    clean(translation) === clean(wordMeaning)
+  )
+    return '';
+  return escapeHtml(String(translation).trim());
+}
+
 function buildNoteFields({
   word,
   translation,
@@ -95,18 +112,22 @@ function buildNoteFields({
   onlyReverse,
   matchWord,
   forms,
-  example,
+  contextTranslation,
 }) {
   const w = escapeHtml(String(word).trim());
   const m = escapeHtml(String(matchWord ?? word).trim());
   return {
     Word: w,
     Translation: escapeHtml(String(translation ?? '').trim()),
-    Context: boldWord(escapeHtml(String(context ?? '').trim()), m),
+    Context:
+      String(context ?? '').trim() === String(word).trim()
+        ? ''
+        : boldWord(escapeHtml(String(context ?? '').trim()), m),
     Source: escapeHtml(String(source ?? '')),
     AddReverse: reverse ? 'y' : '',
     Forms: escapeHtml(String(forms ?? '').trim()),
-    Example: escapeHtml(String(example ?? '').trim()),
+    Example: '', // Retained for compatibility; never render the old generated-example field.
+    ContextTranslation: contextMeaning(contextTranslation, context, translation),
     OnlyReverse: onlyReverse ? 'y' : '',
   };
 }
@@ -132,6 +153,11 @@ function buildClozeNoteRequest(note) {
           Text: buildClozeText(note.context, note.matchWord ?? note.word),
           Translation: escapeHtml(String(note.translation ?? '').trim()),
           Source: escapeHtml(String(note.source ?? '')),
+          ContextTranslation: contextMeaning(
+            note.contextTranslation,
+            note.context,
+            note.translation,
+          ),
         },
         options: { allowDuplicate: !!note.allowDuplicate },
         tags: ['word-clipper'],

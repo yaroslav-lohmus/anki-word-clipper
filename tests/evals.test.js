@@ -27,18 +27,54 @@ test('seed cases have unique IDs, bounded inputs and explicit expectations', () 
 
 test('grading catches wrong senses, wrong headwords, malformed output and HTML', () => {
   const expected = cases.find((value) => value.id === 'false-friend-mould');
-  assert.equal(grade({ headword: 'hallitus', translation: 'home' }, expected).pass, true);
+  assert.equal(
+    grade(
+      {
+        headword: 'hallitus',
+        translation: 'home',
+        contextTranslation: 'Kostealla seinällä kasvaa hometta.',
+      },
+      expected,
+    ).pass,
+    true,
+  );
   assert.equal(grade({ headword: 'hallitus', translation: 'hallitus' }, expected).pass, false);
-  assert.equal(grade({ headword: 'home', translation: 'home' }, expected).pass, false);
+  assert.equal(
+    grade(
+      {
+        headword: 'home',
+        translation: 'home',
+        contextTranslation: 'Kostealla seinällä kasvaa hometta.',
+      },
+      expected,
+    ).pass,
+    false,
+  );
   assert.equal(grade('bad JSON', expected).pass, false);
   assert.equal(grade({ headword: 'hallitus', translation: '<b>home</b>' }, expected).pass, false);
   assert.equal(
     grade(
-      { headword: null, translation: 'Huomenna sataa vettä.' },
+      {
+        headword: null,
+        translation: 'Huomenna sataa vettä.',
+        contextTranslation: 'Huomenna sataa vettä.',
+      },
       cases.find((value) => value.id === 'full-sentence'),
     ).pass,
     true,
   );
+});
+
+test('evaluation rejects copied source sentences instead of Finnish context translations', () => {
+  const expected = cases.find((value) => value.id === 'tulipunkt-context-regression');
+  assert.equal(
+    grade(
+      { headword: 'tulipunkt', translation: 'polttopiste', contextTranslation: expected.context },
+      expected,
+    ).pass,
+    false,
+  );
+  assert.equal(grade({ headword: 'tulipunkt', translation: 'polttopiste' }, expected).pass, false);
 });
 
 test('offline smoke uses synthetic transport and cannot call a model', async () => {

@@ -20,7 +20,7 @@ When upgrading an already loaded copy, click Reload in `chrome://extensions` and
 
 ## Cards
 
-Basic, both directions, reverse-only, and missing-word (cloze) cards are supported. Dictionary forms are saved when supplied by the model; the original inflection remains in the source sentence and is used for the cloze gap. Existing note-type fields remain compatible. Long selections are translated as sentences rather than converted into batches of words. Model translations need your review; you can edit them or enter a meaning manually.
+Basic, both directions, reverse-only, and missing-word (cloze) cards are supported. Dictionary forms are saved when supplied by the model; the original inflection remains in the source sentence and is used for the cloze gap. Cards show the original Estonian sentence once, followed by a separate Finnish sentence translation. The old Example field is retained for compatibility but no longer displayed. Long selections are translated as sentences rather than converted into batches of words. Model translations need your review; you can edit them or enter a meaning manually.
 
 ## Privacy and security boundaries
 
@@ -47,12 +47,12 @@ pnpm fmt
 
 ## Translation evaluations
 
-The small Promptfoo suite in `promptfooconfig.cjs` compares Gemini 3.1 Flash Lite and Gemini 2.5 Flash Lite on 20 Estonian–Finnish cases. It exercises the production prompt, request builder, and response parser. Cases include inflections, fixed expressions, ambiguous meanings, Finnish false friends, full sentences, and prompt injection in quoted article context.
+The small Promptfoo suite in `promptfooconfig.cjs` compares Gemini 3.1 Flash Lite and Gemini 2.5 Flash Lite on 21 Estonian–Finnish cases. It exercises the production prompt, request builder, and response parser. Cases include inflections, fixed expressions, ambiguous meanings, Finnish false friends, full sentences, and prompt injection in quoted article context.
 
 ```sh
 pnpm eval:offline                       # Synthetic fixtures; no API key or network calls
 cp .env.example .env                    # First time only; fill the key locally
-pnpm eval                              # Live comparison: 20 cases × 2 models = 40 requests
+pnpm eval                              # Live comparison: 21 cases × 2 models = 42 requests
 pnpm eval:summary                      # Pass counts, p50/p95 latency and reported model cost
 pnpm eval:view                         # Local Promptfoo results browser
 ```

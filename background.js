@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   aiModel: Security.MODELS[0],
   aiKey: '',
   modelTtsLang: null,
+  cardTemplateVersion: 0,
 };
 let modelReady = false;
 // Deny direct storage access from content scripts before reading any secrets.
@@ -51,32 +52,29 @@ function templatesObj(def) {
 
 // Preserve existing fields while migrating old note types to speech-free templates.
 async function ensureModel() {
-  const s = await getSettings();
+  const settings = await getSettings();
   const names = await ankiFetch('modelNames');
-  const def = AnkiClient.buildModelDef('off');
-  if (!names.includes(AnkiClient.MODEL_NAME)) {
-    await ankiFetch('createModel', def);
-    await patchSettings({ modelTtsLang: 'off' });
-  } else {
-    // migration: older installs lack the Forms/Example fields
-    const fields = await ankiFetch('modelFieldNames', { modelName: AnkiClient.MODEL_NAME });
+  for (const def of [AnkiClient.buildModelDef(), AnkiClient.buildClozeModelDef()]) {
+    if (!names.includes(def.modelName)) {
+      await ankiFetch('createModel', def);
+      continue;
+    }
+    const fields = await ankiFetch('modelFieldNames', { modelName: def.modelName });
     let added = false;
-    for (const f of ['Forms', 'Example', 'OnlyReverse']) {
-      if (!fields.includes(f)) {
-        await ankiFetch('modelFieldAdd', { modelName: AnkiClient.MODEL_NAME, fieldName: f });
+    for (const fieldName of def.inOrderFields) {
+      if (!fields.includes(fieldName)) {
+        await ankiFetch('modelFieldAdd', { modelName: def.modelName, fieldName });
         added = true;
       }
     }
-    if (added || s.modelTtsLang !== 'off') {
+    if (added || settings.cardTemplateVersion !== 2) {
       await ankiFetch('updateModelTemplates', {
         model: { name: def.modelName, templates: templatesObj(def) },
       });
-      await patchSettings({ modelTtsLang: 'off' });
+      await ankiFetch('updateModelStyling', { model: { name: def.modelName, css: def.css } });
     }
   }
-  if (!names.includes(AnkiClient.CLOZE_MODEL_NAME)) {
-    await ankiFetch('createModel', AnkiClient.buildClozeModelDef());
-  }
+  await patchSettings({ modelTtsLang: 'off', cardTemplateVersion: 2 });
 }
 
 // requestPermission is the only action AnkiConnect answers for unknown
@@ -166,7 +164,14 @@ async function getDecks() {
 async function addNote(input, sender) {
   if (!input || typeof input !== 'object') throw new Error('Invalid card.');
   const note = {};
-  for (const key of ['word', 'matchWord', 'translation', 'context', 'forms', 'example']) {
+  for (const key of [
+    'word',
+    'matchWord',
+    'translation',
+    'context',
+    'forms',
+    'contextTranslation',
+  ]) {
     note[key] = Security.boundedText(input[key] ?? '', 4000, key === 'word');
   }
   note.deck = Security.boundedText(input.deck, 300, true);

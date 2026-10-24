@@ -11,6 +11,17 @@ function grade(output, expectations) {
   const headword = normalize(value.headword);
   const translation = normalize(value.translation);
   const failures = [];
+  if (expectations.context) {
+    const sentence = normalize(value.contextTranslation);
+    if (!sentence || sentence === normalize(expectations.context))
+      failures.push('Missing Finnish sentence translation or duplicated Estonian context.');
+    if (
+      (expectations.contextTranslationRequired ?? []).some(
+        (part) => !sentence.includes(normalize(part)),
+      )
+    )
+      failures.push('Sentence translation lost required context.');
+  }
   if (!expectations.headwords.some((candidate) => normalize(candidate) === headword))
     failures.push('Unexpected dictionary form.');
   if (!expectations.meanings.some((candidate) => translation.includes(normalize(candidate))))
