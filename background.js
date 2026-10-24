@@ -8,7 +8,7 @@ const ANKI_URL = "http://127.0.0.1:8765";
 const DEFAULT_SETTINGS = {
   lastDeck: null, instantMode: false,
   defaultCardType: "basic",           // "basic" | "reverse" | "cloze"
-  autoTranslate: true, targetLang: "ru", level: "",
+  autoTranslate: true, targetLang: "fi", level: "",
   engine: "google",                   // "google" | "deepl" | "ai" — сhosen translation engine
   deeplKey: "",
   // aiKey is the key of the ACTIVE provider; aiKeys remembers one per provider

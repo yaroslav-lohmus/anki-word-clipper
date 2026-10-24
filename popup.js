@@ -18,9 +18,10 @@ const AI_PRESETS = {
   },
   openrouter: {
     url: "https://openrouter.ai/api/v1",
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3.1-flash-lite",
     keyUrl: "https://openrouter.ai/settings/keys",
     models: [
+      ["google/gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"],
       ["google/gemini-2.5-flash", "Gemini 2.5 Flash"],
       ["anthropic/claude-sonnet-4.5", "Claude Sonnet 4.5"],
       ["inclusionai/ling-3.0-flash:free", "Ling 3.0 Flash — бесплатная"],
@@ -118,7 +119,7 @@ async function init() {
   $("engines").hidden = !$("autotr").checked;
   $("engine").value = s.engine ?? "google";
   showEngine($("engine").value);
-  $("targetlang").value = s.targetLang ?? "ru";
+  $("targetlang").value = s.targetLang ?? "fi";
   $("level").value = s.level ?? "";
 
   $("deeplkey").value = s.deeplKey ?? "";
