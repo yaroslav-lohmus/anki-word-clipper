@@ -2,7 +2,8 @@ importScripts('anki-client.js', 'translator.js', 'security.js');
 const api = chrome;
 const ANKI_URL = 'http://127.0.0.1:8765';
 const DEFAULT_SETTINGS = {
-  lastDeck: null,
+  lastDeck: 'Estonian',
+  deckPreferenceVersion: 1,
   defaultCardType: 'basic',
   autoTranslate: false,
   aiModel: Security.MODELS[0],
@@ -114,12 +115,16 @@ async function getSettings() {
   if (!Security.CARD_TYPES.includes(settings.defaultCardType)) settings.defaultCardType = 'basic';
   if (typeof settings.aiKey !== 'string') settings.aiKey = '';
   if (typeof settings.autoTranslate !== 'boolean') settings.autoTranslate = false;
+  const deckMigration = stored.deckPreferenceVersion !== 1;
+  if (deckMigration && (!settings.lastDeck || settings.lastDeck === 'Default'))
+    settings.lastDeck = 'Estonian';
+  settings.deckPreferenceVersion = 1;
   const legacy = Object.keys(stored).some((key) => !Object.hasOwn(DEFAULT_SETTINGS, key));
   if (legacy) {
     settings.autoTranslate = false;
     if (stored.aiBaseUrl !== 'https://openrouter.ai/api/v1') settings.aiKey = '';
   }
-  if (legacy) {
+  if (legacy || deckMigration) {
     await api.storage.local.set({ settings });
   }
   return settings;
@@ -149,11 +154,13 @@ function publicSettings(settings) {
 async function getDecks() {
   const c = await check();
   if (!c.ok) return c;
-  return {
-    ok: true,
-    decks: await ankiFetch('deckNames'),
-    lastDeck: (await getSettings()).lastDeck,
-  };
+  const decks = await ankiFetch('deckNames');
+  if (!decks.includes('Estonian')) {
+    await ankiFetch('createDeck', { deck: 'Estonian' });
+    decks.push('Estonian');
+  }
+  const preferred = (await getSettings()).lastDeck;
+  return { ok: true, decks, lastDeck: decks.includes(preferred) ? preferred : 'Estonian' };
 }
 
 async function addNote(input, sender) {
@@ -238,7 +245,13 @@ async function translate(text, context = '', wide = '', avoid = '', test = false
 
 async function handleMessage(msg, sender) {
   const role = Security.senderRole(sender, api.runtime);
-  if (!role) return { ok: false, code: 'FORBIDDEN', message: 'Request not allowed.' };
+  if (
+    !role ||
+    (role === 'content' &&
+      !(await api.permissions.contains({ origins: [Security.sitePattern(sender.url)] })))
+  ) {
+    return { ok: false, code: 'FORBIDDEN', message: 'Enable Word Clipper on this site first.' };
+  }
   if (role === 'popup') {
     switch (msg?.type) {
       case 'CHECK_CONNECTION':
@@ -248,6 +261,8 @@ async function handleMessage(msg, sender) {
       case 'SET_SETTINGS':
         await patchSettings(Security.validatePatch(msg.patch));
         return { ok: true };
+      case 'ENABLE_SITE':
+        return enableSite(msg.tabId);
       case 'TEST_AI': {
         const sample = await translate('raamatut', 'Ma loen raamatut.', '', '', true);
         return sample.ok ? { ok: true, sample } : sample;
@@ -294,18 +309,47 @@ api.runtime.onInstalled.addListener(async (details) => {
     id: 'wc-form',
     title: 'Add to Anki…',
     contexts: ['selection'],
-    documentUrlPatterns: ['https://err.ee/*', 'https://*.err.ee/*'],
+    documentUrlPatterns: ['https://*/*', 'http://*/*'],
   });
   if (details.reason === 'install') api.tabs.create({ url: api.runtime.getURL('welcome.html') });
 });
 api.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'wc-form' && tab?.id && Security.isErrUrl(tab.url)) {
+  if (info.menuItemId === 'wc-form' && tab?.id && Security.sitePattern(tab.url)) {
     api.tabs.sendMessage(tab.id, { type: 'OPEN_FORM' }).catch(() => {});
   }
 });
 api.commands.onCommand.addListener(async (cmd) => {
   if (cmd !== 'open-clipper-form') return;
   const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id && Security.isErrUrl(tab.url))
+  if (tab?.id && Security.sitePattern(tab.url))
     api.tabs.sendMessage(tab.id, { type: 'OPEN_FORM' }).catch(() => {});
 });
+
+// Optional access is granted by the popup's explicit per-site permission request.
+async function enableSite(tabId) {
+  if (!Number.isInteger(tabId)) throw new Error('Open a website first.');
+  const tab = await api.tabs.get(tabId);
+  const pattern = Security.sitePattern(tab.url);
+  if (!pattern || !(await api.permissions.contains({ origins: [pattern] }))) {
+    throw new Error('Site access was not granted.');
+  }
+  const id = `site-${encodeURIComponent(pattern)}`;
+  const registered = await api.scripting.getRegisteredContentScripts({ ids: [id] });
+  if (!registered.length) {
+    await api.scripting.registerContentScripts([
+      {
+        id,
+        matches: [pattern],
+        js: ['context-extract.js', 'content.js'],
+        runAt: 'document_idle',
+        persistAcrossSessions: true,
+      },
+    ]);
+  }
+  // Activate immediately without reloading the article. content.js guards duplicate injection.
+  await api.scripting.executeScript({
+    target: { tabId },
+    files: ['context-extract.js', 'content.js'],
+  });
+  return { ok: true };
+}

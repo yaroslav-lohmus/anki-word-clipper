@@ -2,21 +2,20 @@
 const MODELS = ['google/gemini-3.1-flash-lite', 'google/gemini-2.5-flash-lite'];
 const CARD_TYPES = ['basic', 'reverse', 'reverseOnly', 'cloze'];
 
-function isErrUrl(value) {
+function sitePattern(value) {
   try {
     const url = new URL(value);
-    return (
-      url.protocol === 'https:' && (url.hostname === 'err.ee' || url.hostname.endsWith('.err.ee'))
-    );
+    if (!['https:', 'http:'].includes(url.protocol)) return null;
+    return `${url.protocol}//${url.hostname}/*`;
   } catch {
-    return false;
+    return null;
   }
 }
 
 function senderRole(sender, runtime) {
   if (sender?.id !== runtime.id) return null;
   if (!sender.tab && sender.url === runtime.getURL('popup.html')) return 'popup';
-  if (sender.tab && sender.frameId === 0 && isErrUrl(sender.url)) return 'content';
+  if (sender.tab && sender.frameId === 0 && sitePattern(sender.url)) return 'content';
   return null;
 }
 
@@ -47,5 +46,5 @@ function validatePatch(patch) {
   return result;
 }
 
-const Security = { MODELS, CARD_TYPES, isErrUrl, senderRole, boundedText, validatePatch };
+const Security = { MODELS, CARD_TYPES, sitePattern, senderRole, boundedText, validatePatch };
 if (typeof module !== 'undefined' && module.exports) module.exports = Security;

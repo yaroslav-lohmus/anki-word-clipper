@@ -31,7 +31,53 @@ async function refresh() {
   $('model').value = s.aiModel;
   $('key-status').textContent = s.hasApiKey ? 'An API key is saved.' : 'No API key saved.';
 }
+let activeTab;
+async function refreshSite() {
+  try {
+    [activeTab] = await api.tabs.query({ active: true, currentWindow: true });
+    const pattern = Security.sitePattern(activeTab?.url);
+    if (!pattern) {
+      $('site-status').textContent = 'Open a regular website to capture words.';
+      return;
+    }
+    const allowed = await api.permissions.contains({ origins: [pattern] });
+    const url = new URL(activeTab.url);
+    const builtIn =
+      url.protocol === 'https:' && (url.hostname === 'err.ee' || url.hostname.endsWith('.err.ee'));
+    const registered = await api.scripting.getRegisteredContentScripts({
+      ids: [`site-${encodeURIComponent(pattern)}`],
+    });
+    const enabled = allowed && (builtIn || registered.length > 0);
+    $('enable-site').hidden = enabled;
+    $('site-status').textContent = enabled
+      ? 'Enabled on this site.'
+      : 'Allow access here to capture words.';
+  } catch {
+    $('site-status').textContent = 'Open a website and reopen this popup.';
+  }
+}
 async function init() {
+  $('enable-site').addEventListener('click', async () => {
+    const pattern = Security.sitePattern(activeTab?.url);
+    if (!pattern) return;
+    try {
+      // Must be invoked directly from the user gesture, before any other awaits.
+      const granted = await api.permissions.request({ origins: [pattern] });
+      if (!granted) {
+        $('site-status').textContent = 'Site access was not granted.';
+        return;
+      }
+      const res = await send({ type: 'ENABLE_SITE', tabId: activeTab.id });
+      if (!res.ok) {
+        $('site-status').textContent = res.message;
+        return;
+      }
+      await refreshSite();
+    } catch {
+      $('site-status').textContent = 'Cannot enable this page. Try a regular website.';
+    }
+  });
+  await refreshSite();
   await refresh();
   $('cardtype').addEventListener('change', () => save({ defaultCardType: $('cardtype').value }));
   $('autotr').addEventListener('change', () => save({ autoTranslate: $('autotr').checked }));

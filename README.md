@@ -1,6 +1,6 @@
 # Anki Word Clipper — Estonian / Finnish
 
-A small Chrome extension for reading Estonian on ERR. Select a word or sentence, optionally translate it into Finnish through OpenRouter, and save an editable card with its original context to Anki Desktop.
+A small Chrome extension for reading Estonian on websites. Select a word or sentence, optionally translate it into Finnish through OpenRouter, and save an editable card with its original context to Anki Desktop.
 
 This MIT-licensed fork of [ArtCog/anki-word-clipper](https://github.com/ArtCog/anki-word-clipper) removes the local CLI bridge, alternative translation providers, arbitrary API endpoints, automatic Google fallback, batch extraction, instant-add mode, and speech configuration. The interface is English and always uses a light theme. The add-word dialog shows the word, Finnish meaning, and deck; sentence editing and card type are under More options. There is no application server, build step, or runtime package dependency.
 
@@ -11,8 +11,10 @@ This MIT-licensed fork of [ArtCog/anki-word-clipper](https://github.com/ArtCog/a
 3. In Chrome, open `chrome://extensions`, enable Developer mode, and choose Load unpacked. Select the repository directory containing `manifest.json`.
 4. Open the extension popup and approve its connection in Anki.
 5. Optionally save an OpenRouter API key and enable translation. Translation is initially off. Choose Gemini 3.1 Flash Lite or Gemini 2.5 Flash Lite.
-6. Open an ERR article, select text, and click + Anki. You can also right-click → Add to Anki or press Option+A on macOS (Alt+A elsewhere).
-7. Check the meaning, choose a deck, and save. Sync Anki Desktop and your phone through AnkiWeb.
+6. Open an ERR article (or enable another site from the popup), select text, and click + Anki. You can also right-click → Add to Anki or press Option+A on macOS (Alt+A elsewhere).
+7. Check the meaning, choose a deck, and save. The default is Estonian; it is created automatically if missing. Later deck choices are remembered. Sync Anki Desktop and your phone through AnkiWeb.
+
+On first upgrade from the previous deck behavior, an unset or Default deck preference changes to Estonian. Other saved preferences are preserved.
 
 When upgrading an already loaded copy, click Reload in `chrome://extensions` and reload any open ERR tabs. Upgrading from the original version disables translation until you explicitly enable it again. Old provider keys, endpoints, and unused preferences are removed. An existing OpenRouter key is retained only when its old endpoint exactly matches the OpenRouter preset.
 
@@ -22,12 +24,12 @@ Basic, both directions, reverse-only, and missing-word (cloze) cards are support
 
 ## Privacy and security boundaries
 
-- Page scripts run only on HTTPS `err.ee` and its subdomains, in the top frame. Other sites and Firefox are outside this fork's supported scope.
-- Network access is limited to OpenRouter and loopback AnkiConnect. There are no analytics, CLI processes, remotely loaded scripts, or automatic provider fallbacks.
+- Page scripts run in the top frame on ERR by default. Other HTTP/HTTPS sites require per-site access granted from the popup. That access persists for future visits and can be revoked in Chrome extension site-access settings. Already-open scripts are blocked from using the backend once permission is revoked. Firefox remains outside this fork's supported scope.
+- Translation requests go only to the fixed OpenRouter endpoint; card requests go only to loopback AnkiConnect. Optional site permissions allow page capture on approved sites, not user-configurable translation endpoints. There are no analytics, CLI processes, remotely loaded scripts, or automatic provider fallbacks.
 - When you enable translation and open a card form, selected text and limited surrounding context go to OpenRouter and its selected model provider. The Test translation button explicitly sends a fixed Estonian example even when automatic translation is off. Requests omit cookies and reject redirects.
 - Article title and URL are saved with the card in Anki; they are not included in translation requests. Cards can subsequently sync through AnkiWeb under your Anki settings.
 - API keys live in extension-local storage restricted to trusted extension contexts. Keys are not returned in settings responses, including responses to the popup. Storage is not an encrypted credential vault. Use a dedicated spending-limited OpenRouter key.
-- Only the extension popup can change credentials and model settings. ERR content scripts can request bounded translations and card creation, list decks, and remember the card type; they cannot choose endpoints or execute arbitrary AnkiConnect actions.
+- Only the extension popup can change credentials and model settings. Approved content scripts can request bounded translations and card creation, list decks, and remember the card type; they cannot choose endpoints or execute arbitrary AnkiConnect actions.
 - One translation can run at a time, with a timeout and an output-token limit. These bounds reduce accidental request bursts, but are not a substitute for provider-side spending limits.
 - Keep AnkiConnect on its default loopback address. Browser extensions and local software still require trust; this hardening is not a guarantee against every vulnerability.
 

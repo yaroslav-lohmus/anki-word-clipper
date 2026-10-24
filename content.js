@@ -1,4 +1,7 @@
+// Repeated per-site activation must not attach duplicate forms or event listeners.
 (() => {
+  if (globalThis.__wordClipperLoaded) return;
+  globalThis.__wordClipperLoaded = true;
   const api = globalThis.browser ?? globalThis.chrome;
   const MAX_SEL_LEN = 2000;
 

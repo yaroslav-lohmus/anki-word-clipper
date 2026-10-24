@@ -34,6 +34,10 @@
       </div>
       <p id="key-status" role="status"></p>
       <label class="check"><input type="checkbox" id="autotr" />Translate when adding a word</label>
+      <div class="site-access">
+        <button id="enable-site" type="button" hidden>Enable on this site</button>
+        <p id="site-status" class="hint" role="status"></p>
+      </div>
       <details>
         <summary>More settings</summary>
         <div class="field">
@@ -62,8 +66,9 @@
           provider. Cards sync through Anki when you sync.
         </p>
       </details>
-      <p class="hint">On ERR: select text, then + Anki.<br />Shortcut: Option+A / Alt+A.</p>
+      <p class="hint">Select text, then + Anki.<br />Shortcut: Option+A / Alt+A.</p>
     </main>
+    <script src="security.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -20,6 +20,9 @@ function harness(initialSettings = {}, failStorage = false, fetchImpl) {
   let stored = structuredClone(initialSettings);
   const calls = [];
   let accessLevel;
+  const granted = new Set(['https://www.err.ee/*']);
+  const registrations = [];
+  const injections = [];
   const api = {
     runtime: { ...runtime, onMessage: { addListener() {} }, onInstalled: { addListener() {} } },
     storage: {
@@ -36,7 +39,20 @@ function harness(initialSettings = {}, failStorage = false, fetchImpl) {
         },
       },
     },
-    tabs: { query: async () => [], sendMessage: async () => {} },
+    permissions: {
+      contains: async ({ origins }) => origins.every((origin) => granted.has(origin)),
+    },
+    scripting: {
+      getRegisteredContentScripts: async ({ ids }) =>
+        registrations.filter((value) => ids.includes(value.id)),
+      registerContentScripts: async (scripts) => registrations.push(...scripts),
+      executeScript: async (details) => injections.push(details),
+    },
+    tabs: {
+      query: async () => [],
+      sendMessage: async () => {},
+      get: async (id) => ({ id, url: 'https://yle.fi/article' }),
+    },
     contextMenus: { onClicked: { addListener() {} } },
     commands: { onCommand: { addListener() {} } },
   };
@@ -66,6 +82,10 @@ function harness(initialSettings = {}, failStorage = false, fetchImpl) {
   return {
     request: (message, sender = popup) => context.handleMessage(message, sender),
     calls,
+    grant: (origin) => granted.add(origin),
+    revoke: (origin) => granted.delete(origin),
+    registrations,
+    injections,
     get stored() {
       return stored;
     },
@@ -75,7 +95,7 @@ function harness(initialSettings = {}, failStorage = false, fetchImpl) {
   };
 }
 
-test('trust boundary allows only popup and top-frame ERR scripts', () => {
+test('sender roles permit only our popup and top-frame web content before permission checks', () => {
   assert.equal(S.senderRole(popup, runtime), 'popup');
   assert.equal(S.senderRole(content, runtime), 'content');
   for (const sender of [
@@ -83,8 +103,8 @@ test('trust boundary allows only popup and top-frame ERR scripts', () => {
     { ...popup, id: 'other' },
     { ...popup, tab: { id: 1 } },
     { ...content, frameId: 2 },
-    { ...content, url: 'https://err.ee.attacker.invalid/' },
-    { ...content, url: 'http://err.ee/' },
+    { ...content, url: 'chrome://settings/' },
+    { ...content, url: 'file:///tmp/private.html' },
   ]) {
     assert.equal(S.senderRole(sender, runtime), null);
   }
@@ -212,13 +232,70 @@ test('card creation escapes hostile HTML and uses the actual source URL', async 
   assert.equal(saved.fields.Source, 'ERR article — https://www.err.ee/article');
 });
 
-test('manifest grants only ERR page access and the two required network origins', () => {
+test('manifest keeps default page access on ERR and makes other sites optional', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json')));
   assert.deepEqual(manifest.host_permissions, [
     'http://127.0.0.1:8765/*',
     'https://openrouter.ai/*',
   ]);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://err.ee/*', 'https://*.err.ee/*']);
-  assert.equal(manifest.optional_host_permissions, undefined);
+  assert.deepEqual(manifest.optional_host_permissions, ['https://*/*', 'http://*/*']);
+  assert.ok(manifest.permissions.includes('scripting'));
   assert.equal(manifest.externally_connectable, undefined);
+});
+
+test('new and migrated installations default to Estonian without overriding a later choice', async () => {
+  for (const settings of [{}, { lastDeck: null }, { lastDeck: 'Default' }]) {
+    const h = harness(settings);
+    assert.equal((await h.request({ type: 'GET_SETTINGS' })).settings.lastDeck, 'Estonian');
+    assert.equal(h.stored.deckPreferenceVersion, 1);
+  }
+  const h = harness({ lastDeck: 'Default', deckPreferenceVersion: 1 });
+  assert.equal((await h.request({ type: 'GET_SETTINGS' })).settings.lastDeck, 'Default');
+});
+
+test('deck listing creates Estonian when missing and preselects it instead of Default', async () => {
+  const h = harness({ lastDeck: 'Default' }, false, async (_url, options) => {
+    const { action } = JSON.parse(options.body);
+    const result = {
+      requestPermission: { permission: 'granted' },
+      modelNames: [],
+      createModel: true,
+      deckNames: ['Default'],
+      createDeck: 123,
+    }[action];
+    return { ok: true, json: async () => ({ result, error: null }) };
+  });
+  const result = await h.request({ type: 'GET_DECKS' }, content);
+  assert.equal(result.lastDeck, 'Estonian');
+  assert.ok(result.decks.includes('Estonian'));
+  assert.ok(h.calls.some((call) => JSON.parse(call.options.body).action === 'createDeck'));
+});
+
+test('non-ERR sites require permission; revocation blocks existing content scripts', async () => {
+  const h = harness({ aiKey: 'secret-test-key' });
+  const sender = { ...content, url: 'https://yle.fi/article' };
+  assert.equal((await h.request({ type: 'GET_SETTINGS' }, sender)).code, 'FORBIDDEN');
+  h.grant('https://yle.fi/*');
+  const res = await h.request({ type: 'GET_SETTINGS' }, sender);
+  assert.equal(res.ok, true);
+  assert.ok(!JSON.stringify(res).includes('secret-test-key'));
+  assert.equal(
+    (await h.request({ type: 'SET_SETTINGS', patch: { aiKey: 'bad' } }, sender)).code,
+    'FORBIDDEN',
+  );
+  h.revoke('https://yle.fi/*');
+  assert.equal((await h.request({ type: 'GET_SETTINGS' }, sender)).code, 'FORBIDDEN');
+});
+
+test('only the popup can activate a granted site and registrations are idempotent', async () => {
+  const h = harness();
+  await assert.rejects(h.request({ type: 'ENABLE_SITE', tabId: 5 }), /not granted/);
+  h.grant('https://yle.fi/*');
+  assert.equal((await h.request({ type: 'ENABLE_SITE', tabId: 5 }, content)).code, 'FORBIDDEN');
+  assert.equal((await h.request({ type: 'ENABLE_SITE', tabId: 5 })).ok, true);
+  assert.equal((await h.request({ type: 'ENABLE_SITE', tabId: 5 })).ok, true);
+  assert.equal(h.registrations.length, 1);
+  assert.deepEqual(Array.from(h.registrations[0].matches), ['https://yle.fi/*']);
+  assert.equal(h.injections.length, 2);
 });

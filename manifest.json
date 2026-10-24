@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Anki Word Clipper",
-  "version": "0.6.1",
-  "description": "Save Estonian words from ERR to Anki with contextual Finnish translations via OpenRouter.",
-  "permissions": ["storage", "contextMenus", "activeTab"],
+  "version": "0.6.2",
+  "description": "Save Estonian words from websites to Anki with contextual Finnish translations via OpenRouter.",
+  "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
   "host_permissions": ["http://127.0.0.1:8765/*", "https://openrouter.ai/*"],
   "background": {
     "service_worker": "background.js"
@@ -38,5 +38,6 @@
       "description": "Add selected text to Anki"
     }
   },
-  "minimum_chrome_version": "102"
+  "minimum_chrome_version": "102",
+  "optional_host_permissions": ["https://*/*", "http://*/*"]
 }
