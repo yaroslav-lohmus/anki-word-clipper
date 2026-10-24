@@ -157,7 +157,14 @@ module.exports = [
     context:
       "Ka teistes eelmise nädala tulipunktides, nagu Marseille'is ja Lyonis, avanes sarnane pilt – meeleavalduste äärealadel toimusid küll mõned kokkupõrked, kuid need polnud ligilähedaseltki sama ulatuslikud kui möödunud nädalal.",
     headwords: ['tulipunkt'],
-    meanings: ['polttopiste', 'keskiö', 'levottomuus', 'pesäke', 'kuuma piste'],
+    meanings: [
+      'polttopiste',
+      'keskiö',
+      'levottomuus',
+      'pesäke',
+      'kuuma piste',
+      'kuumissa pisteissä',
+    ],
     contextTranslationRequired: ['marseille', 'lyon'],
   },
 ];

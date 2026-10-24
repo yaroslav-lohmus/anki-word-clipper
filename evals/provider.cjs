@@ -4,7 +4,8 @@ const { MODELS, boundedText } = require('../security.js');
 class TranslationProvider {
   constructor({ config = {}, fetchImpl = globalThis.fetch } = {}) {
     this.model = config.model ?? MODELS[0];
-    if (!MODELS.includes(this.model)) throw new Error('Unsupported evaluation model.');
+    if (![...MODELS, 'deepseek/deepseek-v4.1-flash-1017'].includes(this.model))
+      throw new Error('Unsupported evaluation model.');
     this.offline = config.offline === true;
     this.fetch = fetchImpl;
   }
@@ -57,10 +58,23 @@ class TranslationProvider {
         json = await response.json();
       }
       const parsed = parseAiResponse(json);
-      if (!parsed) return { error: 'Production parser rejected the model response.' };
       const result = {
-        output: JSON.stringify(parsed),
-        metadata: { model: this.model, offline: this.offline },
+        ...(parsed
+          ? { output: JSON.stringify(parsed) }
+          : { error: 'Production parser rejected the model response.' }),
+        metadata: {
+          model: this.model,
+          returnedModel: json.model,
+          offline: this.offline,
+          finishReason: json.choices?.[0]?.finish_reason,
+          ...(!parsed
+            ? {
+                rawOutput: String(json.choices?.[0]?.message?.content ?? '')
+                  .slice(0, 12000)
+                  .replaceAll(key || 'never-a-secret-placeholder', '[REDACTED]'),
+              }
+            : {}),
+        },
       };
       if (json.usage) {
         result.tokenUsage = {

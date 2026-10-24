@@ -66,6 +66,15 @@ pnpm eval --filter-first-n 3
 pnpm eval --filter-providers 'Gemini 3.1 Flash Lite'
 ```
 
+To compare Gemini with the pinned October 17, 2026 DeepSeek Flash snapshot:
+
+```sh
+pnpm eval:deepseek
+pnpm eval:summary output/eval-deepseek.json
+```
+
+This uses the same 21 cases, production prompt, 900-token output limit, and 20-second timeout for both models. It makes 42 requests and saves a separate report. DeepSeek is enabled for evaluation only; this command does not change the extension's selected model.
+
 Each run disables response caching so changed prompts and latency measurements use fresh responses. These are small-sample latency observations, not a production SLA. Cost comes from OpenRouter's reported usage when present; missing cost is shown as unknown rather than zero. Failures and extra reasoning tokens can affect actual billed usage. Results are written to `output/eval-live.json` and the local Promptfoo history; the JSON file is overwritten on each run.
 
 ### Tuning the prompt and cases

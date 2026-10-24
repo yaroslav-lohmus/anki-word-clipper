@@ -13,7 +13,8 @@
     "eval": "node scripts/eval.mjs",
     "eval:offline": "node scripts/eval.mjs --offline",
     "eval:view": "node scripts/eval.mjs --view",
-    "eval:summary": "node scripts/eval-summary.mjs"
+    "eval:summary": "node scripts/eval-summary.mjs",
+    "eval:deepseek": "node scripts/eval.mjs --deepseek"
   },
   "devDependencies": {
     "oxfmt": "0.74.0",

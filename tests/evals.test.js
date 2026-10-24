@@ -134,3 +134,28 @@ test('live adapter shares production parser, reports billed usage and redacts se
     else process.env.OPENROUTER_API_KEY = previous;
   }
 });
+
+test('DeepSeek comparison pins the latest checked snapshot without enabling it in the extension', () => {
+  const config = require('../evals/deepseek.config.cjs');
+  const { MODELS } = require('../security.js');
+  const provider = new Provider({ config: { model: 'deepseek/deepseek-v4.1-flash-1017' } });
+  assert.match(provider.id(), /deepseek-v4.1-flash-1017$/);
+  assert.equal(config.tests.length, cases.length);
+  assert.equal(config.providers.length, 2);
+  assert.ok(!MODELS.includes('deepseek/deepseek-v4.1-flash-1017'));
+});
+
+test('tulipunkt accepts contextual Finnish inflection as well as dictionary wording', () => {
+  const expected = cases.find((value) => value.id === 'tulipunkt-context-regression');
+  assert.equal(
+    grade(
+      {
+        headword: 'tulipunkt',
+        translation: 'kuumissa pisteissä',
+        contextTranslation: 'Myös Marseillessa ja Lyonissa oli levottomuuksia.',
+      },
+      expected,
+    ).pass,
+    true,
+  );
+});

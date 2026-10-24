@@ -8,6 +8,7 @@ const dotenv = join(root, '.env');
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 const offline = process.argv.includes('--offline');
 const view = process.argv.includes('--view');
+const deepseek = process.argv.includes('--deepseek');
 if (!offline && !view && !process.env.OPENROUTER_API_KEY?.trim()) {
   console.error(
     'No OpenRouter key configured. Add OPENROUTER_API_KEY to .env (see .env.example). Nothing was sent. Use pnpm eval:offline for a free harness check.',
@@ -16,17 +17,21 @@ if (!offline && !view && !process.env.OPENROUTER_API_KEY?.trim()) {
 }
 const configDir = join(root, 'output', 'promptfoo');
 mkdirSync(configDir, { recursive: true });
-const report = `output/eval-${offline ? 'offline' : 'live'}.json`;
+const report = `output/eval-${offline ? 'offline' : deepseek ? 'deepseek' : 'live'}.json`;
 const args = view
   ? ['view']
   : [
       'eval',
       '-c',
-      offline ? 'evals/offline.config.cjs' : 'promptfooconfig.cjs',
+      offline
+        ? 'evals/offline.config.cjs'
+        : deepseek
+          ? 'evals/deepseek.config.cjs'
+          : 'promptfooconfig.cjs',
       '--no-cache',
       '-o',
       report,
-      ...process.argv.slice(2).filter((value) => value !== '--offline'),
+      ...process.argv.slice(2).filter((value) => !['--offline', '--deepseek'].includes(value)),
     ];
 const result = spawnSync(
   process.execPath,
