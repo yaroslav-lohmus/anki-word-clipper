@@ -1,198 +1,66 @@
-const api = globalThis.browser ?? globalThis.chrome;
+const api = chrome;
 const $ = (id) => document.getElementById(id);
-const set = (patch) => api.runtime.sendMessage({ type: "SET_SETTINGS", patch });
-
-// preset → base URL + a sensible default model (user can override)
-const AI_PRESETS = {
-  gemini: {
-    url: "https://generativelanguage.googleapis.com/v1beta/openai",
-    model: "gemini-3.6-flash",
-    keyUrl: "https://aistudio.google.com/apikey",
-    models: [
-      ["gemini-3.6-flash", "Gemini 3.6 Flash — самая свежая, рекомендую"],
-      ["gemini-3.5-flash", "Gemini 3.5 Flash"],
-      ["gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite — щедрый лимит"],
-      ["gemini-2.5-flash", "Gemini 2.5 Flash — проверено временем"],
-      ["gemini-2.5-pro", "Gemini 2.5 Pro — медленнее, умнее"],
-    ],
-  },
-  openrouter: {
-    url: "https://openrouter.ai/api/v1",
-    model: "google/gemini-3.1-flash-lite",
-    keyUrl: "https://openrouter.ai/settings/keys",
-    models: [
-      ["google/gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"],
-      ["google/gemini-2.5-flash", "Gemini 2.5 Flash"],
-      ["anthropic/claude-sonnet-4.5", "Claude Sonnet 4.5"],
-      ["inclusionai/ling-3.0-flash:free", "Ling 3.0 Flash — бесплатная"],
-    ],
-  },
-  bridge: {
-    url: "http://localhost:8770/v1",
-    model: "claude-haiku",
-    keyUrl: null,
-    models: [
-      ["claude-haiku", "Claude Haiku — подписка Claude, всегда последняя, ~20 с"],
-      ["claude-sonnet", "Claude Sonnet — подписка Claude, всегда последняя, ~30 с"],
-      ["claude-opus", "Claude Opus — подписка Claude, всегда последняя, самый умный"],
-      ["antigravity", "Gemini 3.6 Flash — подписка Google, ~40 с"],
-      ["codex-sol", "GPT 5.6 Sol — подписка ChatGPT, ~60 с"],
-      ["codex-terra", "GPT 5.6 Terra — подписка ChatGPT"],
-      ["codex-luna", "GPT 5.6 Luna — подписка ChatGPT"],
-    ],
-  },
-  ollama: {
-    url: "http://localhost:11434/v1",
-    model: "llama3.1",
-    keyUrl: null,
-    models: [["llama3.1", "Llama 3.1"], ["qwen2.5", "Qwen 2.5"]],
-  },
-  custom: { url: "", model: "", keyUrl: null, models: [] },
-};
-
-const CUSTOM_MODEL = "__custom__";
-let savedKeys = {}; // provider id -> its own API key
-
-// fill the model dropdown for a preset; keeps `selected` chosen if it is known,
-// otherwise falls back to the free-text field
-function fillModels(presetName, selected) {
-  const sel = $("aimodelsel");
-  const list = AI_PRESETS[presetName]?.models ?? [];
-  sel.innerHTML = "";
-  for (const [id, label] of list) {
-    const o = document.createElement("option");
-    o.value = id;
-    o.textContent = label;
-    sel.append(o);
+async function send(message) {
+  try {
+    return await api.runtime.sendMessage(message);
+  } catch {
+    return { ok: false, message: 'Extension unavailable. Reload the extension and try again.' };
   }
-  const other = document.createElement("option");
-  other.value = CUSTOM_MODEL;
-  other.textContent = "другая (вписать вручную)";
-  sel.append(other);
-
-  const known = list.some(([id]) => id === selected);
-  sel.value = known ? selected : CUSTOM_MODEL;
-  sel.parentElement.hidden = list.length === 0;
-  $("aimodel").parentElement.hidden = list.length > 0 && known;
 }
-
-function showEngine(engine) {
-  $("eng-deepl").hidden = engine !== "deepl";
-  $("eng-ai").hidden = engine !== "ai";
+async function save(patch) {
+  const res = await send({ type: 'SET_SETTINGS', patch });
+  if (!res.ok) $('key-status').textContent = res.message;
+  return res;
 }
-
 async function check() {
-  const box = $("status");
-  box.className = "checking";
-  box.textContent = "Проверяю соединение…";
-  const res = await api.runtime.sendMessage({ type: "CHECK_CONNECTION" }).catch(() => null);
-  const ok = !!res?.ok;
-  box.className = ok ? "ok" : "err";
-  box.textContent = ok ? "Anki подключён" : (res?.message ?? "Anki недоступен");
-  $("help").hidden = ok;
+  $('status').textContent = 'Checking Anki…';
+  const res = await send({ type: 'CHECK_CONNECTION' });
+  $('status').className = res.ok ? 'ok' : 'err';
+  $('status').textContent = res.ok ? 'Anki connected' : res.message;
+  $('help').hidden = res.ok;
 }
-
-async function testAi() {
-  const out = $("aitest-res");
-  out.className = "";
-  out.textContent = "Проверяю ИИ…";
-  const res = await api.runtime.sendMessage({ type: "TEST_AI" }).catch((e) => ({ ok: false, message: String(e) }));
-  if (res?.ok) {
-    out.className = "ok";
-    const s = res.sample;
-    out.textContent = `✓ ${s.headword || "Haus"} — ${s.translation}${s.note ? " · " + s.note : ""}`;
-  } else {
-    out.className = "err";
-    out.textContent = `✗ ${res?.message ?? "не удалось"}`;
+async function refresh() {
+  const res = await send({ type: 'GET_SETTINGS' });
+  if (!res.ok) {
+    $('key-status').textContent = res.message;
+    return;
   }
+  const s = res.settings;
+  $('cardtype').value = s.defaultCardType;
+  $('autotr').checked = s.autoTranslate;
+  $('model').value = s.aiModel;
+  $('key-status').textContent = s.hasApiKey ? 'An API key is saved.' : 'No API key saved.';
 }
-
 async function init() {
-  const res = await api.runtime.sendMessage({ type: "GET_SETTINGS" }).catch(() => null);
-  const s = res?.settings ?? {};
-
-  $("instant").checked = !!s.instantMode;
-  $("cardtype").value = s.defaultCardType ?? "basic";
-  $("ttslang").value = s.ttsLang ?? "off";
-
-  $("autotr").checked = s.autoTranslate !== false;
-  $("engines").hidden = !$("autotr").checked;
-  $("engine").value = s.engine ?? "google";
-  showEngine($("engine").value);
-  $("targetlang").value = s.targetLang ?? "fi";
-  $("level").value = s.level ?? "";
-
-  $("deeplkey").value = s.deeplKey ?? "";
-  $("aiurl").value = s.aiBaseUrl ?? "";
-  $("aimodel").value = s.aiModel ?? "";
-  $("aikey").value = s.aiKey ?? "";
-  savedKeys = { ...(s.aiKeys ?? {}) };
-  $("aiextra").value = s.aiExtra ?? "";
-  $("aiexample").checked = !!s.aiExample;
-
-  // restore preset selection + key link from the saved base URL
-  const presetName = Object.keys(AI_PRESETS).find((k) => AI_PRESETS[k].url && AI_PRESETS[k].url === s.aiBaseUrl);
-  if (presetName) {
-    $("aipreset").value = presetName;
-    const p = AI_PRESETS[presetName];
-    if (p.keyUrl) { $("aikeylink").hidden = false; $("aikeylink").href = p.keyUrl; }
-    $("bridgehint").hidden = presetName !== "bridge";
-    fillModels(presetName, s.aiModel ?? "");
-  } else {
-    fillModels("custom", s.aiModel ?? "");
-  }
-
-  $("instant").addEventListener("change", () => set({ instantMode: $("instant").checked }));
-  $("cardtype").addEventListener("change", () => set({ defaultCardType: $("cardtype").value }));
-  $("ttslang").addEventListener("change", () => set({ ttsLang: $("ttslang").value }));
-
-  $("autotr").addEventListener("change", () => {
-    $("engines").hidden = !$("autotr").checked;
-    set({ autoTranslate: $("autotr").checked });
+  await refresh();
+  $('cardtype').addEventListener('change', () => save({ defaultCardType: $('cardtype').value }));
+  $('autotr').addEventListener('change', () => save({ autoTranslate: $('autotr').checked }));
+  $('model').addEventListener('change', () => save({ aiModel: $('model').value }));
+  $('save-key').addEventListener('click', async () => {
+    const key = $('aikey').value.trim();
+    if (!key) {
+      $('key-status').textContent = 'Enter a key to save it.';
+      return;
+    }
+    if ((await save({ aiKey: key })).ok) {
+      $('aikey').value = '';
+      await refresh();
+    }
   });
-  $("engine").addEventListener("change", () => {
-    showEngine($("engine").value);
-    set({ engine: $("engine").value });
+  $('clear-key').addEventListener('click', async () => {
+    if ((await save({ aiKey: '' })).ok) {
+      $('aikey').value = '';
+      await refresh();
+    }
   });
-  $("targetlang").addEventListener("change", () => set({ targetLang: $("targetlang").value }));
-  $("level").addEventListener("change", () => set({ level: $("level").value }));
-
-  $("deeplkey").addEventListener("change", () => set({ deeplKey: $("deeplkey").value.trim() }));
-  $("aipreset").addEventListener("change", () => {
-    const p = AI_PRESETS[$("aipreset").value];
-    if (!p) return;
-    $("aiurl").value = p.url;
-    $("aimodel").value = p.model;
-    // each provider carries its own key; never hand Google's key to OpenRouter
-    const key = savedKeys[$("aipreset").value] ?? "";
-    $("aikey").value = key;
-    set({ aiBaseUrl: p.url, aiModel: p.model, aiKey: key }); // one atomic patch — no lost update
-    const link = $("aikeylink");
-    link.hidden = !p.keyUrl;
-    if (p.keyUrl && !key) { link.href = p.keyUrl; $("aikey").focus(); }
-    else if (p.keyUrl) link.href = p.keyUrl;
-    $("bridgehint").hidden = $("aipreset").value !== "bridge";
-    fillModels($("aipreset").value, p.model);
+  $('aitest').addEventListener('click', async () => {
+    $('aitest-res').textContent = 'Testing translation…';
+    const res = await send({ type: 'TEST_AI' });
+    $('aitest-res').textContent = res.ok
+      ? `${res.sample.headword || 'raamat'} — ${res.sample.translation}`
+      : res.message;
   });
-  $("aiurl").addEventListener("change", () => set({ aiBaseUrl: $("aiurl").value.trim() }));
-  $("aimodelsel").addEventListener("change", () => {
-    const v = $("aimodelsel").value;
-    const manual = v === CUSTOM_MODEL;
-    $("aimodel").parentElement.hidden = !manual;
-    if (manual) $("aimodel").focus();
-    else { $("aimodel").value = v; set({ aiModel: v }); }
-  });
-  $("aimodel").addEventListener("change", () => set({ aiModel: $("aimodel").value.trim() }));
-  $("aikey").addEventListener("change", () => {
-    const key = $("aikey").value.trim();
-    savedKeys[$("aipreset").value || "custom"] = key;
-    set({ aiKey: key, aiKeys: savedKeys });
-  });
-  $("aiextra").addEventListener("change", () => set({ aiExtra: $("aiextra").value.trim() }));
-  $("aiexample").addEventListener("change", () => set({ aiExample: $("aiexample").checked }));
-  $("aitest").addEventListener("click", testAi);
-
-  $("retry").addEventListener("click", check);
-  check();
+  $('retry').addEventListener('click', check);
+  await check();
 }
 init();

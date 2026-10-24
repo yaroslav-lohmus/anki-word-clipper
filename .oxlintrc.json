@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": { "browser": true, "node": true, "webextensions": true },
+  "globals": {
+    "AnkiClient": "readonly",
+    "Translator": "readonly",
+    "Security": "readonly",
+    "ContextExtract": "readonly"
+  },
+  "categories": { "correctness": "error" },
+  "plugins": ["unicorn", "oxc"],
+  "ignorePatterns": ["node_modules/**", "output/**"]
+}

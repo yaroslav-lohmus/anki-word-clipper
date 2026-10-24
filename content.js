@@ -1,19 +1,22 @@
 (() => {
   const api = globalThis.browser ?? globalThis.chrome;
-  const MAX_SEL_LEN = 2000; // long selections go to batch mode
-  const BATCH_MIN = 120;    // selection length that switches to batch mode
+  const MAX_SEL_LEN = 2000;
 
   const ERROR_TEXT = {
-    ANKI_UNREACHABLE: "Anki недоступен — запусти Anki с AnkiConnect",
-    PERMISSION_DENIED: "Anki не разрешил доступ — нажми «Yes» в окне Anki",
-    DUPLICATE: "Уже есть в колоде",
-    DECK_MISSING: "Колода не найдена — обнови список",
-    MODEL_MISSING: "Тип карточки не найден — открой попап расширения",
-    UNKNOWN: "Ошибка Anki",
+    ANKI_UNREACHABLE: 'Anki is unavailable. Open Anki with AnkiConnect.',
+    PERMISSION_DENIED: 'Access denied. Click Yes in Anki.',
+    DUPLICATE: 'Already in this deck',
+    DECK_MISSING: 'Deck not found. Refresh the list.',
+    MODEL_MISSING: 'Card type not found. Open extension settings.',
+    UNKNOWN: 'Anki error',
   };
   const errText = (res) => {
-    if (String(res?.message ?? "").toLowerCase().includes("context invalidated")) {
-      return "Расширение обновилось — обнови страницу (F5)";
+    if (
+      String(res?.message ?? '')
+        .toLowerCase()
+        .includes('context invalidated')
+    ) {
+      return 'Extension updated. Reload this page.';
     }
     return ERROR_TEXT[res?.code] ?? res?.message ?? ERROR_TEXT.UNKNOWN;
   };
@@ -24,7 +27,7 @@
     try {
       return await api.runtime.sendMessage(msg);
     } catch (e) {
-      return { ok: false, code: "UNKNOWN", message: String(e?.message ?? e) };
+      return { ok: false, code: 'UNKNOWN', message: String(e?.message ?? e) };
     }
   };
 
@@ -58,12 +61,6 @@
     input:focus, textarea:focus, select:focus { outline: none; border-color: #3CE5B0; }
     .wc-rr { background: none; border: 0; color: #3CE5B0; cursor: pointer; font-size: 12px; padding: 0 2px; opacity: .8; }
     .wc-rr:hover { opacity: 1; }
-    .wc-b-list { max-height: 260px; overflow-y: auto; margin-top: 6px; }
-    .wc-b-list label { all: unset; display: flex; gap: 7px; align-items: flex-start; font-size: 12px; margin: 7px 0; cursor: pointer; }
-    .wc-b-list input { margin-top: 2px; }
-    .wc-b-list b { color: #3CE5B0; font-weight: 600; }
-    .wc-b-list .tr { opacity: .9; }
-    .wc-b-list .nt { opacity: .55; font-size: 11px; }
     .wc-note { font-size: 11px; color: #7bdcc0; opacity: .95; margin: 5px 0 0; }
     .wc-note:empty { display: none; }
     .wc-example { font-size: 11px; font-style: italic; opacity: .7; margin: 4px 0 0; }
@@ -87,11 +84,9 @@
     .wc-toast button { background: none; border: 0; color: #3CE5B0; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
   `;
 
-  let host, shadow, btn, form, batch, toast, toastTimer;
+  let host, shadow, btn, form, toast, toastTimer;
   let lastCapture = null;
   let currentCapture = null;
-  let batchItems = [];
-  let batchCapture = null;
 
   const q = (sel) => form.querySelector(sel);
 
@@ -100,22 +95,27 @@
   function selectionInfo() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-    const text = sel.toString().replace(/\s+/g, " ").trim();
+    const text = sel.toString().replace(/\s+/g, ' ').trim();
     if (!text || text.length > MAX_SEL_LEN) return null;
     const node = sel.anchorNode;
     const el = node instanceof Element ? node : node?.parentElement;
-    if (!el || el.closest("input, textarea, [contenteditable=''], [contenteditable=true]")) return null;
+    if (!el || el.closest("input, textarea, [contenteditable=''], [contenteditable=true]"))
+      return null;
     return { text, range: sel.getRangeAt(0) };
   }
 
-  const BLOCK = "p, li, td, th, blockquote, h1, h2, h3, h4, h5, h6, dd, dt, figcaption, article, section, div, body";
+  const BLOCK =
+    'p, li, td, th, blockquote, h1, h2, h3, h4, h5, h6, dd, dt, figcaption, article, section, div, body';
 
   function blockTextAround(range) {
     const c = range.startContainer;
     const el = (c instanceof Element ? c : c.parentElement)?.closest(BLOCK);
     if (!el) return null;
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    let text = "", selStart = -1, selEnd = -1, n;
+    let text = '',
+      selStart = -1,
+      selEnd = -1,
+      n;
     while ((n = walker.nextNode())) {
       if (n === range.startContainer) selStart = text.length + range.startOffset;
       if (n === range.endContainer) selEnd = text.length + range.endOffset;
@@ -127,15 +127,16 @@
   function capture() {
     const info = selectionInfo();
     if (!info) return null;
-    let context = "", wideContext = "";
+    let context = '',
+      wideContext = '';
     const block = blockTextAround(info.range);
     if (block) {
       const c = ContextExtract.extractContext(block.text, block.selStart, block.selEnd);
-      context = (c.before + c.word + c.after).replace(/\s+/g, " ").trim();
+      context = (c.before + c.word + c.after).replace(/\s+/g, ' ').trim();
       // ±1 sentence around — goes to the AI for disambiguation, not to the card
       // ponytail: window is limited to the same block element; cross-paragraph neighbours are out
       const w = ContextExtract.extractContext(block.text, block.selStart, block.selEnd, 700, 2);
-      wideContext = (w.before + w.word + w.after).replace(/\s+/g, " ").trim();
+      wideContext = (w.before + w.word + w.after).replace(/\s+/g, ' ').trim();
     }
     return {
       word: info.text,
@@ -150,71 +151,78 @@
 
   function ensureUi() {
     if (host) return;
-    host = document.createElement("div");
-    host.style.cssText = "all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647;";
-    shadow = host.attachShadow({ mode: "closed" });
-    const style = document.createElement("style");
+    host = document.createElement('div');
+    host.style.cssText =
+      'all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647;';
+    shadow = host.attachShadow({ mode: 'closed' });
+    const style = document.createElement('style');
     style.textContent = CSS;
 
-    btn = document.createElement("button");
-    btn.className = "wc-btn";
-    btn.textContent = "+ Anki";
-    btn.addEventListener("mousedown", (e) => {
+    btn = document.createElement('button');
+    btn.className = 'wc-btn';
+    btn.textContent = '+ Anki';
+    btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
       onButton(e);
     });
 
-    form = document.createElement("div");
-    form.className = "wc-form";
+    form = document.createElement('div');
+    form.className = 'wc-form';
     form.innerHTML = `
-      <div class="wc-head"><span>+ Anki</span><button class="wc-x" title="Закрыть">×</button></div>
-      <label>Слово / фраза</label><input type="text" class="wc-word">
-      <label>Перевод / пояснение <button class="wc-rr" title="Перевести заново (другой вариант)">↻</button></label><input type="text" class="wc-tr" placeholder="можно оставить пустым">
+      <div class="wc-head"><span>+ Anki</span><button class="wc-x" title="Close">×</button></div>
+      <label>Word / phrase</label><input type="text" class="wc-word">
+      <label>Translation / meaning <button class="wc-rr" title="Try another translation">↻</button></label><input type="text" class="wc-tr" placeholder="optional">
       <div class="wc-note"></div>
-      <label>Контекст</label><textarea class="wc-ctx" rows="2"></textarea>
+      <label>Original sentence</label><textarea class="wc-ctx" rows="2"></textarea>
       <div class="wc-example"></div>
-      <label>Тип карточки</label><select class="wc-type">
-        <option value="basic">Обычная (слово → перевод)</option>
-        <option value="reverse">Двусторонняя (обе стороны)</option>
-        <option value="reverseOnly">Обратная (только перевод → слово)</option>
-        <option value="cloze">Пропуск в предложении (cloze)</option>
+      <label>Card type</label><select class="wc-type">
+        <option value="basic">Basic (word → meaning)</option>
+        <option value="reverse">Both directions</option>
+        <option value="reverseOnly">Reverse (meaning → word)</option>
+        <option value="cloze">Missing word (cloze)</option>
       </select>
-      <label>Колода</label><select class="wc-deck"></select>
-      <div class="wc-row"><button class="wc-add">Добавить</button><span class="wc-status"></span></div>
+      <label>Deck</label><select class="wc-deck"></select>
+      <div class="wc-row"><button class="wc-add">Add</button><span class="wc-status"></span></div>
     `;
-    form.querySelector(".wc-x").addEventListener("click", closeForm);
-    form.querySelector(".wc-add").addEventListener("click", () => submit(false));
-    form.querySelector(".wc-rr").addEventListener("click", (e) => {
+    form.querySelector('.wc-x').addEventListener('click', closeForm);
+    form.querySelector('.wc-add').addEventListener('click', () => submit(false));
+    form.querySelector('.wc-rr').addEventListener('click', (e) => {
       e.preventDefault();
-      const avoid = q(".wc-tr").value;
+      const avoid = q('.wc-tr').value;
       trEdited = false;
-      requestTranslation(q(".wc-word").value, avoid);
+      requestTranslation(q('.wc-word').value, avoid);
     });
 
     // re-translate when the word is edited by hand; stop auto-filling once
     // the user typed their own translation
-    const wordInput = form.querySelector(".wc-word");
-    const trInput = form.querySelector(".wc-tr");
+    const wordInput = form.querySelector('.wc-word');
+    const trInput = form.querySelector('.wc-tr');
     let wordTimer;
-    trInput.addEventListener("input", () => { trEdited = true; });
-    wordInput.addEventListener("input", () => {
+    trInput.addEventListener('input', () => {
+      trEdited = true;
+    });
+    wordInput.addEventListener('input', () => {
       clearTimeout(wordTimer);
-      wordTimer = setTimeout(() => { if (!trEdited) requestTranslation(wordInput.value); }, 600);
+      wordTimer = setTimeout(() => {
+        if (!trEdited) requestTranslation(wordInput.value);
+      }, 600);
     });
 
     // context textarea grows to its content while focused
-    const ctxInput = form.querySelector(".wc-ctx");
-    ctxInput.addEventListener("focus", () => {
-      ctxInput.style.height = "auto";
+    const ctxInput = form.querySelector('.wc-ctx');
+    ctxInput.addEventListener('focus', () => {
+      ctxInput.style.height = 'auto';
       ctxInput.style.height = `${Math.min(ctxInput.scrollHeight + 2, 180)}px`;
     });
-    ctxInput.addEventListener("blur", () => { ctxInput.style.height = ""; });
+    ctxInput.addEventListener('blur', () => {
+      ctxInput.style.height = '';
+    });
 
     // drag the form by its header
-    const head = form.querySelector(".wc-head");
-    head.addEventListener("pointerdown", (e) => {
-      if (e.target.closest(".wc-x")) return;
+    const head = form.querySelector('.wc-head');
+    head.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.wc-x')) return;
       const r = form.getBoundingClientRect();
       const dx = e.clientX - r.left;
       const dy = e.clientY - r.top;
@@ -223,90 +231,78 @@
         form.style.top = `${Math.max(0, Math.min(ev.clientY - dy, innerHeight - 40))}px`;
       };
       const up = () => {
-        head.removeEventListener("pointermove", move);
-        head.removeEventListener("pointerup", up);
+        head.removeEventListener('pointermove', move);
+        head.removeEventListener('pointerup', up);
       };
       head.setPointerCapture(e.pointerId);
-      head.addEventListener("pointermove", move);
-      head.addEventListener("pointerup", up);
+      head.addEventListener('pointermove', move);
+      head.addEventListener('pointerup', up);
       e.preventDefault();
     });
-    form.addEventListener("keydown", (e) => {
+    form.addEventListener('keydown', (e) => {
       e.stopPropagation(); // keep page hotkeys away from our form
-      if (e.key === "Escape") closeForm();
-      if (e.key === "Enter" && (e.target.tagName !== "TEXTAREA" || e.ctrlKey)) {
+      if (e.key === 'Escape') closeForm();
+      if (e.key === 'Enter' && (e.target.tagName !== 'TEXTAREA' || e.ctrlKey)) {
         e.preventDefault();
         submit(false);
       }
     });
 
-    batch = document.createElement("div");
-    batch.className = "wc-form wc-batch";
-    batch.innerHTML = `
-      <div class="wc-head"><span>+ Anki · разбор текста</span><button class="wc-x" title="Закрыть">×</button></div>
-      <div class="wc-status"></div>
-      <div class="wc-b-list"></div>
-      <label>Колода</label><select class="wc-deck"></select>
-      <div class="wc-row"><button class="wc-add">Добавить выбранные</button><span class="wc-b-count"></span></div>
-    `;
-    batch.querySelector(".wc-x").addEventListener("click", closeBatch);
-    batch.querySelector(".wc-add").addEventListener("click", submitBatch);
-    batch.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Escape") closeBatch();
-    });
+    toast = document.createElement('div');
+    toast.className = 'wc-toast';
 
-    toast = document.createElement("div");
-    toast.className = "wc-toast";
-
-    shadow.append(style, btn, form, batch, toast);
+    shadow.append(style, btn, form, toast);
     document.documentElement.append(host);
   }
 
   // ---------- button ----------
 
-  function hideButton() { if (btn) btn.classList.remove("show"); }
-  const formOpen = () => form?.classList.contains("show");
-  const batchOpen = () => batch?.classList.contains("show");
+  function hideButton() {
+    if (btn) btn.classList.remove('show');
+  }
+  const formOpen = () => form?.classList.contains('show');
 
   function maybeShowButton() {
     ensureUi();
-    if (formOpen() || batchOpen()) return;
+    if (formOpen()) return;
     setTimeout(() => {
       const cap = capture();
-      if (!cap) { hideButton(); return; }
+      if (!cap) {
+        hideButton();
+        return;
+      }
       lastCapture = cap;
       btn.style.left = `${Math.min(cap.rect.right + 6, innerWidth - 80)}px`;
       btn.style.top = `${Math.max(cap.rect.top - 34, 4)}px`;
-      btn.classList.add("show");
+      btn.classList.add('show');
     }, 10);
   }
 
-  document.addEventListener("mouseup", (e) => {
+  document.addEventListener('mouseup', (e) => {
     if (!host || e.composedPath()[0] !== host) maybeShowButton();
   });
-  document.addEventListener("keyup", (e) => {
-    if (e.key === "Shift" || e.shiftKey) maybeShowButton();
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift' || e.shiftKey) maybeShowButton();
   });
-  document.addEventListener("selectionchange", () => {
+  document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
     if ((!sel || sel.isCollapsed) && !formOpen()) hideButton();
   });
-  // click anywhere outside the form/batch panel closes it
-  document.addEventListener("mousedown", (e) => {
-    if (!e.composedPath().includes(host)) {
-      if (formOpen()) closeForm();
-      if (batchOpen()) closeBatch();
-    }
-  }, true);
-  window.addEventListener("scroll", hideButton, { passive: true, capture: true });
+  // Click outside the form to close it.
+  document.addEventListener(
+    'mousedown',
+    (e) => {
+      if (!e.composedPath().includes(host)) {
+        if (formOpen()) closeForm();
+      }
+    },
+    true,
+  );
+  window.addEventListener('scroll', hideButton, { passive: true, capture: true });
 
-  async function onButton(e) {
+  function onButton() {
     hideButton();
-    const res = await send({ type: "GET_SETTINGS" });
-    const instant = !!res?.settings?.instantMode !== e.shiftKey; // shift inverts the mode
-    if (instant) instantAdd(lastCapture);
-    else openForm(lastCapture);
+    openForm(lastCapture);
   }
 
   // ---------- form ----------
@@ -314,48 +310,50 @@
   async function openForm(cap) {
     if (!cap) return;
     ensureUi();
-    if (cap.word.length >= BATCH_MIN) return openBatch(cap); // whole passage → batch mode
     currentCapture = cap;
     trEdited = false;
-    aiForms = "";
-    aiExample = "";
-    q(".wc-word").value = cap.word;
-    q(".wc-tr").value = "";
-    q(".wc-ctx").value = cap.context;
-    q(".wc-note").textContent = "";
-    q(".wc-example").textContent = "";
-    setStatus("");
+    aiForms = '';
+    aiExample = '';
+    q('.wc-word').value = cap.word;
+    q('.wc-tr').value = '';
+    q('.wc-ctx').value = cap.context;
+    q('.wc-note').textContent = '';
+    q('.wc-example').textContent = '';
+    setStatus('');
     const left = Math.max(8, Math.min(cap.rect.left, innerWidth - 336));
-    const top = cap.rect.bottom + 8 + 340 < innerHeight ? cap.rect.bottom + 8 : Math.max(8, cap.rect.top - 348);
+    const top =
+      cap.rect.bottom + 8 + 340 < innerHeight
+        ? cap.rect.bottom + 8
+        : Math.max(8, cap.rect.top - 348);
     form.style.left = `${left}px`;
     form.style.top = `${top}px`;
-    form.classList.add("show");
+    form.classList.add('show');
 
-    const st = await send({ type: "GET_SETTINGS" });
-    q(".wc-type").value = st?.settings?.defaultCardType ?? "basic";
-    q(".wc-tr").focus();
+    const st = await send({ type: 'GET_SETTINGS' });
+    q('.wc-type').value = st?.settings?.defaultCardType ?? 'basic';
+    q('.wc-tr').focus();
     requestTranslation(cap.word);
 
-    const deckSel = q(".wc-deck");
-    deckSel.innerHTML = "<option>Загружаю колоды…</option>";
-    const res = await send({ type: "GET_DECKS" });
+    const deckSel = q('.wc-deck');
+    deckSel.innerHTML = '<option>Loading decks…</option>';
+    const res = await send({ type: 'GET_DECKS' });
     if (!res.ok) {
       deckSel.innerHTML = "<option value=''>—</option>";
-      setStatus(errText(res), true, { label: "Повторить", fn: () => openForm(currentCapture) });
+      setStatus(errText(res), true, { label: 'Retry', fn: () => openForm(currentCapture) });
       return;
     }
-    deckSel.innerHTML = "";
+    deckSel.innerHTML = '';
     for (const d of res.decks) {
-      const o = document.createElement("option");
+      const o = document.createElement('option');
       o.value = o.textContent = d;
       deckSel.append(o);
     }
     if (res.lastDeck && res.decks.includes(res.lastDeck)) deckSel.value = res.lastDeck;
-    q(".wc-tr").focus();
+    q('.wc-tr').focus();
   }
 
   function closeForm() {
-    form?.classList.remove("show");
+    form?.classList.remove('show');
     currentCapture = null;
   }
 
@@ -364,202 +362,84 @@
   // provider we also get a dictionary headword (put into Word) and a short
   // grammar note (shown as a hint).
   let translateSeq = 0;
-  let trEdited = false;  // user typed their own translation — never overwrite it
-  let aiForms = "";      // verb principal forms from the AI — saved into the Forms field
-  let aiExample = "";    // optional AI example sentence — saved into the Example field
-  async function requestTranslation(word, avoid = "") {
+  let trEdited = false; // user typed their own translation — never overwrite it
+  let aiForms = ''; // verb principal forms from the AI — saved into the Forms field
+  let aiExample = ''; // optional AI example sentence — saved into the Example field
+  async function requestTranslation(word, avoid = '') {
     if (!word?.trim()) return;
     const seq = ++translateSeq;
-    const tr = q(".wc-tr");
-    if (avoid) tr.value = "";
-    tr.placeholder = "перевожу…";
-    const res = await send({ type: "TRANSLATE", text: word, context: q(".wc-ctx").value, wide: currentCapture?.wideContext ?? "", avoid });
+    const tr = q('.wc-tr');
+    if (avoid) tr.value = '';
+    tr.placeholder = 'Translating…';
+    const res = await send({
+      type: 'TRANSLATE',
+      text: word,
+      context: q('.wc-ctx').value,
+      wide: currentCapture?.wideContext ?? '',
+      avoid,
+    });
     if (seq !== translateSeq || !formOpen()) return;
-    tr.placeholder = "можно оставить пустым";
-    if (!res.ok) return;
+    tr.placeholder = 'optional';
+    if (!res.ok) {
+      q('.wc-note').textContent =
+        res.message || 'Translation unavailable; you can enter a meaning yourself.';
+      return;
+    }
     if (!trEdited) tr.value = res.translation;
-    if (res.provider === "ai") {
-      aiForms = res.forms ?? "";
-      aiExample = res.example ?? "";
-      // a single verb keeps the form seen on the page; everything else (nouns,
-      // multi-word selections, idioms, paired conjunctions) gets the dictionary unit
-      const multiWord = /\s/.test(q(".wc-word").value.trim());
-      if (res.headword && (multiWord || !aiForms) && !trEdited) q(".wc-word").value = res.headword;
-      q(".wc-note").textContent = [aiForms, res.note].filter(Boolean).join(" · ");
-      q(".wc-example").textContent = aiExample;
-    } else if (res.fallbackError) {
-      q(".wc-note").textContent = `⚠ ${res.fallbackFrom === "deepl" ? "DeepL" : "ИИ"} не сработал (${res.fallbackError}) — перевёл Google`;
+    if (res.provider === 'ai') {
+      aiForms = res.forms ?? '';
+      aiExample = res.example ?? '';
+      // Keep the original inflection in matchWord and save the dictionary form.
+      if (res.headword && !trEdited) q('.wc-word').value = res.headword;
+      q('.wc-note').textContent = [aiForms, res.note].filter(Boolean).join(' · ');
+      q('.wc-example').textContent = aiExample;
     }
   }
 
   function setStatus(text, isErr = false, action = null) {
-    const box = q(".wc-status");
-    box.className = `wc-status${isErr ? " err" : ""}`;
+    const box = q('.wc-status');
+    box.className = `wc-status${isErr ? ' err' : ''}`;
     box.textContent = text;
     if (action) {
-      const b = document.createElement("button");
+      const b = document.createElement('button');
       b.textContent = action.label;
-      b.addEventListener("click", action.fn);
-      box.append(" ", b);
+      b.addEventListener('click', action.fn);
+      box.append(' ', b);
     }
   }
 
   async function submit(allowDuplicate) {
-    const cardType = q(".wc-type").value;
+    const cardType = q('.wc-type').value;
     const note = {
-      word: q(".wc-word").value,
-      matchWord: currentCapture?.word ?? q(".wc-word").value, // the form in the sentence
-      translation: q(".wc-tr").value,
-      context: q(".wc-ctx").value,
+      word: q('.wc-word').value,
+      matchWord: currentCapture?.word ?? q('.wc-word').value, // the form in the sentence
+      translation: q('.wc-tr').value,
+      context: q('.wc-ctx').value,
       source: currentCapture?.source ?? `${document.title} — ${location.href}`,
       forms: aiForms,
       example: aiExample,
       cardType,
-      deck: q(".wc-deck").value,
+      deck: q('.wc-deck').value,
       allowDuplicate,
     };
-    if (!note.word.trim()) return setStatus("Слово пустое", true);
-    if (!note.deck) return setStatus("Выбери колоду", true);
-    if (cardType === "cloze" && !note.context.trim()) {
-      return setStatus("Для cloze нужен контекст", true);
+    if (!note.word.trim()) return setStatus('Enter a word', true);
+    if (!note.deck) return setStatus('Choose a deck', true);
+    if (cardType === 'cloze' && !note.context.trim()) {
+      return setStatus('Cloze cards need a sentence', true);
     }
-    q(".wc-add").disabled = true;
-    setStatus("Добавляю…");
-    const res = await send({ type: "ADD_NOTE", note });
-    q(".wc-add").disabled = false;
+    q('.wc-add').disabled = true;
+    setStatus('Adding…');
+    const res = await send({ type: 'ADD_NOTE', note });
+    q('.wc-add').disabled = false;
     if (res.ok) {
-      send({ type: "SET_SETTINGS", patch: { defaultCardType: cardType } });
+      send({ type: 'SET_CARD_TYPE', cardType });
       closeForm();
-      showToast("Добавлено в Anki ✓");
-    } else if (res.code === "DUPLICATE") {
-      setStatus("Уже есть в колоде", true, { label: "Добавить всё равно", fn: () => submit(true) });
+      showToast('Added to Anki ✓');
+    } else if (res.code === 'DUPLICATE') {
+      setStatus('Already in this deck', true, { label: 'Add anyway', fn: () => submit(true) });
     } else {
       setStatus(errText(res), true); // form stays open, input preserved
     }
-  }
-
-  // ---------- instant mode ----------
-
-  async function instantAdd(cap, allowDuplicate = false) {
-    if (!cap) return;
-    ensureUi();
-    if (cap.word.length >= BATCH_MIN) return openBatch(cap); // batch is always interactive
-    const st = await send({ type: "GET_SETTINGS" });
-    const deck = st?.settings?.lastDeck;
-    if (!deck) { openForm(cap); return; } // first ever use: no deck yet — fall back to form
-    let cardType = st.settings.defaultCardType ?? "basic";
-    if (cardType === "cloze" && !cap.context) cardType = "basic"; // no sentence → no gap
-    let word = cap.word, translation = "", forms = "", example = "";
-    const tr = await send({ type: "TRANSLATE", text: cap.word, context: cap.context, wide: cap.wideContext ?? "" });
-    if (tr.ok) {
-      translation = tr.translation;
-      forms = tr.forms ?? "";
-      example = tr.example ?? "";
-      // same rule as in the form: only a single verb keeps its page form
-      if (tr.provider === "ai" && tr.headword && (/\s/.test(cap.word.trim()) || !forms)) word = tr.headword;
-    }
-    const note = {
-      word, matchWord: cap.word, translation, forms, example, context: cap.context, source: cap.source,
-      cardType, deck, allowDuplicate,
-    };
-    const res = await send({ type: "ADD_NOTE", note });
-    if (res.ok) showToast(`Добавлено в «${deck}» ✓`);
-    else if (res.code === "DUPLICATE" && !allowDuplicate) {
-      showToast("Уже есть в колоде", { label: "Добавить всё равно", fn: () => instantAdd(cap, true) });
-    } else showToast(errText(res));
-  }
-
-  // ---------- batch mode: whole passage → list of learnable words ----------
-
-  const bq = (sel) => batch.querySelector(sel);
-
-  function closeBatch() {
-    batch?.classList.remove("show");
-    batchItems = [];
-    batchCapture = null;
-  }
-
-  async function openBatch(cap) {
-    batchCapture = cap;
-    hideButton();
-    const left = Math.max(8, Math.min(cap.rect.left, innerWidth - 336));
-    const top = Math.max(8, Math.min(cap.rect.bottom + 8, innerHeight - 420));
-    batch.style.left = `${left}px`;
-    batch.style.top = `${top}px`;
-    batch.classList.add("show");
-    bq(".wc-b-list").innerHTML = "";
-    bq(".wc-b-count").textContent = "";
-    bq(".wc-status").textContent = "ИИ выбирает слова, стоящие изучения…";
-    bq(".wc-add").disabled = true;
-
-    // decks in parallel with the AI call
-    send({ type: "GET_DECKS" }).then((res) => {
-      const deckSel = bq(".wc-deck");
-      deckSel.innerHTML = "";
-      if (!res.ok) { deckSel.innerHTML = "<option value=''>—</option>"; return; }
-      for (const d of res.decks) {
-        const o = document.createElement("option");
-        o.value = o.textContent = d;
-        deckSel.append(o);
-      }
-      if (res.lastDeck && res.decks.includes(res.lastDeck)) deckSel.value = res.lastDeck;
-    });
-
-    const res = await send({ type: "BATCH", text: cap.word });
-    if (!batch.classList.contains("show")) return;
-    if (!res.ok) {
-      bq(".wc-status").textContent = res.message ?? "Не получилось";
-      return;
-    }
-    batchItems = res.items;
-    bq(".wc-status").textContent = "Выбери, что добавить:";
-    const list = bq(".wc-b-list");
-    res.items.forEach((it, i) => {
-      const row = document.createElement("label");
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = true;
-      cb.dataset.i = i;
-      const txt = document.createElement("span");
-      txt.innerHTML = `<b></b> — <span class="tr"></span> <span class="nt"></span>`;
-      txt.querySelector("b").textContent = it.headword || it.word;
-      txt.querySelector(".tr").textContent = it.translation;
-      txt.querySelector(".nt").textContent = [it.forms, it.note].filter(Boolean).join(" · ");
-      row.append(cb, txt);
-      list.append(row);
-    });
-    bq(".wc-add").disabled = false;
-  }
-
-  // each word gets its own sentence from the selected passage as card context
-  function sentenceFor(passage, word) {
-    const idx = passage.toLowerCase().indexOf(word.toLowerCase());
-    if (idx === -1) return "";
-    const c = ContextExtract.extractContext(passage, idx, idx + word.length);
-    return (c.before + c.word + c.after).replace(/\s+/g, " ").trim();
-  }
-
-  async function submitBatch() {
-    const deck = bq(".wc-deck").value;
-    if (!deck) { bq(".wc-status").textContent = "Выбери колоду"; return; }
-    const checked = [...bq(".wc-b-list").querySelectorAll("input:checked")].map((cb) => batchItems[cb.dataset.i]);
-    if (!checked.length) { bq(".wc-status").textContent = "Ничего не выбрано"; return; }
-    bq(".wc-add").disabled = true;
-    let added = 0, dup = 0, failed = 0;
-    for (const it of checked) {
-      bq(".wc-b-count").textContent = `${added + dup + failed + 1}/${checked.length}…`;
-      const res = await send({ type: "ADD_NOTE", note: {
-        word: it.headword || it.word, matchWord: it.word,
-        translation: it.translation, forms: it.forms, example: "",
-        context: sentenceFor(batchCapture?.word ?? "", it.word),
-        source: batchCapture?.source ?? "", cardType: "basic", deck, allowDuplicate: false,
-      } });
-      if (res.ok) added++;
-      else if (res.code === "DUPLICATE") dup++;
-      else failed++;
-    }
-    closeBatch();
-    showToast(`Добавлено: ${added}${dup ? `, уже было: ${dup}` : ""}${failed ? `, ошибок: ${failed}` : ""}`);
   }
 
   // ---------- toast ----------
@@ -569,21 +449,28 @@
     clearTimeout(toastTimer);
     toast.textContent = text;
     if (action) {
-      const b = document.createElement("button");
+      const b = document.createElement('button');
       b.textContent = action.label;
-      b.addEventListener("click", () => { hideToast(); action.fn(); });
+      b.addEventListener('click', () => {
+        hideToast();
+        action.fn();
+      });
       toast.append(b);
     }
-    toast.classList.add("show");
+    toast.classList.add('show');
     toastTimer = setTimeout(hideToast, action ? 7000 : 2500);
   }
 
-  function hideToast() { toast?.classList.remove("show"); }
+  function hideToast() {
+    toast?.classList.remove('show');
+  }
 
   // ---------- external triggers (context menu / hotkey) ----------
 
   api.runtime.onMessage.addListener((msg) => {
-    if (msg?.type === "OPEN_FORM") { const c = capture() ?? lastCapture; if (c) openForm(c); }
-    if (msg?.type === "INSTANT_ADD") { const c = capture() ?? lastCapture; if (c) instantAdd(c); }
+    if (msg?.type === 'OPEN_FORM') {
+      const c = capture() ?? lastCapture;
+      if (c) openForm(c);
+    }
   });
 })();
