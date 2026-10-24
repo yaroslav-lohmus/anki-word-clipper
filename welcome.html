@@ -2,31 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="color-scheme" content="light" />
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="icon" href="icons/icon32.png" />
     <title>Anki Word Clipper setup</title>
   </head>
   <body>
-    <h1>Anki Word Clipper</h1>
-    <p>Read Estonian on ERR and save unfamiliar words to Anki.</p>
-    <ol>
-      <li>
-        Keep Anki Desktop open with AnkiConnect installed (Tools → Add-ons → Get Add-ons →
-        2055492159).
-      </li>
-      <li>Open the extension settings and approve the Anki connection.</li>
-      <li>
-        Optionally save an OpenRouter API key and enable translation. Without it, enter meanings
-        yourself.
-      </li>
-      <li>
-        Open an ERR article, select a word or sentence, and click + Anki. Check the meaning, select
-        a deck, and save.
-      </li>
-      <li>Sync Anki Desktop and your phone through AnkiWeb.</li>
-    </ol>
-    <p>
-      Only ERR pages are supported. The extension sends selected text and limited sentence context
-      to OpenRouter only when you request a translation. Article links are saved with the card, not
-      included in translation requests.
-    </p>
+    <main class="setup">
+      <h1>Anki Word Clipper</h1>
+      <p>Read Estonian on ERR and save unfamiliar words to Anki.</p>
+      <ol>
+        <li>
+          Keep Anki Desktop open with AnkiConnect installed (Tools → Add-ons → Get Add-ons →
+          2055492159).
+        </li>
+        <li>Open the extension settings and approve the Anki connection.</li>
+        <li>
+          Optionally save an OpenRouter API key and enable translation. Without it, enter meanings
+          yourself.
+        </li>
+        <li>
+          Open an ERR article, select a word or sentence, and click + Anki. Check the meaning,
+          select a deck, and save.
+        </li>
+        <li>Sync Anki Desktop and your phone through AnkiWeb.</li>
+      </ol>
+      <p>
+        Only ERR pages are supported. The extension sends selected text and limited sentence context
+        to OpenRouter only when you request a translation. Article links are saved with the card,
+        not included in translation requests.
+      </p>
+    </main>
   </body>
 </html>

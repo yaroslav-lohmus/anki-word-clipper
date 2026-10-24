@@ -2,7 +2,7 @@
 
 A small Chrome extension for reading Estonian on ERR. Select a word or sentence, optionally translate it into Finnish through OpenRouter, and save an editable card with its original context to Anki Desktop.
 
-This MIT-licensed fork of [ArtCog/anki-word-clipper](https://github.com/ArtCog/anki-word-clipper) removes the local CLI bridge, alternative translation providers, arbitrary API endpoints, automatic Google fallback, batch extraction, instant-add mode, and speech configuration. The interface is English. There is no application server, build step, or runtime package dependency.
+This MIT-licensed fork of [ArtCog/anki-word-clipper](https://github.com/ArtCog/anki-word-clipper) removes the local CLI bridge, alternative translation providers, arbitrary API endpoints, automatic Google fallback, batch extraction, instant-add mode, and speech configuration. The interface is English and always uses a light theme. The add-word dialog shows the word, Finnish meaning, and deck; sentence editing and card type are under More options. There is no application server, build step, or runtime package dependency.
 
 ## Installation
 

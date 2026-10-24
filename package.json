@@ -1,6 +1,6 @@
 {
   "name": "anki-word-clipper",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "scripts": {
     "preinstall": "node scripts/require-pnpm.mjs",

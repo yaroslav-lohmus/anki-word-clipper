@@ -32,56 +32,50 @@
   };
 
   const CSS = `
-    :host { all: initial; }
-    * { box-sizing: border-box; font-family: "Segoe UI", system-ui, sans-serif; }
-    .wc-btn {
-      position: fixed; display: none; z-index: 2147483647;
-      background: #0B0F0E; color: #E8EDEB; border: 1px solid #3CE5B0; border-radius: 8px;
-      padding: 4px 10px; font-size: 13px; font-weight: 600; cursor: pointer;
-      box-shadow: 0 2px 10px rgba(0,0,0,.35);
-    }
+    :host { all: initial; color-scheme: light; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; transition: background .15s; }
+    :focus-visible { outline: 2px solid #35634e; outline-offset: 3px; }
+    .wc-btn { position: fixed; display: none; z-index: 2147483647; background: #fff; color: #35634e;
+      border: 1px solid #cbd8cf; border-radius: 5px; padding: 5px 10px; font-size: 12px; font-weight: 600;
+      box-shadow: 0 2px 8px #25312d14; }
     .wc-btn.show { display: block; }
-    .wc-btn:hover { background: #16211d; }
-    .wc-form {
-      position: fixed; display: none; z-index: 2147483647; width: 324px;
-      background: #0d1211; color: #E8EDEB; border: 1px solid #24312c; border-top: 2px solid #3CE5B0;
-      border-radius: 14px; padding: 14px; font-size: 13px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.55);
-    }
+    .wc-btn:hover { background: #edf3ef; }
+    .wc-form { position: fixed; display: none; z-index: 2147483647; width: 340px; max-width: calc(100vw - 16px);
+      max-height: calc(100dvh - 16px); overflow-y: auto; color-scheme: light; background: #fff; color: #25312d;
+      border: 1px solid #dce2de; border-radius: 10px; padding: 18px; font-size: 13px;
+      box-shadow: 0 6px 28px #25312d1a; line-height: 1.5; }
     .wc-form.show { display: block; }
-    .wc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: #3CE5B0; font-weight: 700; cursor: move; user-select: none; touch-action: none; }
-    .wc-x { background: none; border: 0; color: #E8EDEB; font-size: 16px; cursor: pointer; opacity: .6; }
-    .wc-x:hover { opacity: 1; }
-    label { display: block; margin: 6px 0 2px; font-size: 11px; opacity: .65; }
-    input[type=text], textarea, select {
-      width: 100%; background: #16211d; color: #E8EDEB; border: 1px solid #26332e;
-      border-radius: 8px; padding: 7px 9px; font-size: 13px; transition: border-color .12s;
-    }
-    textarea { resize: vertical; min-height: 44px; transition: height .12s; }
-    input:focus, textarea:focus, select:focus { outline: none; border-color: #3CE5B0; }
-    .wc-rr { background: none; border: 0; color: #3CE5B0; cursor: pointer; font-size: 12px; padding: 0 2px; opacity: .8; }
-    .wc-rr:hover { opacity: 1; }
-    .wc-note { font-size: 11px; color: #7bdcc0; opacity: .95; margin: 5px 0 0; }
+    .wc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+      font-size: 15px; font-weight: 600; letter-spacing: -.02em; cursor: move; user-select: none; touch-action: none; }
+    .wc-x { background: transparent; border: 0; border-radius: 4px; padding: 1px 6px; color: #65716b; font-size: 20px; }
+    .wc-x:hover { background: #f3f5f3; }
+    label { display: block; margin: 12px 0 5px; font-size: 12px; font-weight: 500; }
+    input[type=text], textarea, select { display: block; width: 100%; background: #fff; color: #25312d;
+      border: 1px solid #dce2de; border-radius: 5px; padding: 8px 9px; font-size: 13px; }
+    input::placeholder, textarea::placeholder { color: #76817b; opacity: 1; }
+    textarea { resize: vertical; min-height: 60px; }
+    .wc-meaning-head { display: flex; align-items: baseline; justify-content: space-between; }
+    .wc-rr { background: transparent; border: 0; padding: 2px 0; color: #35634e; font-size: 11px; }
+    .wc-rr:hover { text-decoration: underline; }
+    .wc-note { font-size: 12px; color: #65716b; margin-top: 7px; overflow-wrap: anywhere; }
     .wc-note:empty { display: none; }
-    .wc-example { font-size: 11px; font-style: italic; opacity: .7; margin: 4px 0 0; }
-    .wc-example:empty { display: none; }
-    .wc-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
-    .wc-add {
-      background: #3CE5B0; color: #0B0F0E; border: 0; border-radius: 8px;
-      padding: 7px 16px; font-weight: 700; cursor: pointer;
-    }
-    .wc-add:hover { filter: brightness(1.08); }
-    .wc-add:disabled { opacity: .5; cursor: default; }
-    .wc-status { font-size: 12px; opacity: .85; }
-    .wc-status.err { color: #ff8a8a; }
-    .wc-status button { background: none; border: 0; color: #3CE5B0; cursor: pointer; padding: 0; font-size: 12px; text-decoration: underline; }
-    .wc-toast {
-      position: fixed; right: 18px; bottom: 18px; display: none; z-index: 2147483647;
-      background: #0B0F0E; color: #E8EDEB; border: 1px solid #3CE5B0; border-radius: 10px;
-      padding: 9px 14px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.45);
-    }
+    .wc-options { margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf0ed; }
+    summary { width: fit-content; font-size: 12px; color: #65716b; cursor: pointer; }
+    .wc-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+    .wc-add { flex: none; background: #35634e; color: #fff; border: 0; border-radius: 5px; padding: 9px 14px; font-size: 13px; font-weight: 550; }
+    .wc-add:hover { background: #294e3d; }
+    .wc-add:active { transform: translateY(1px); }
+    .wc-add:disabled { opacity: .55; cursor: default; }
+    .wc-status { color: #65716b; font-size: 12px; overflow-wrap: anywhere; }
+    .wc-status.err { color: #a1342b; }
+    .wc-status button { background: transparent; border: 0; color: #35634e; padding: 0; font-size: 12px; text-decoration: underline; }
+    .wc-toast { position: fixed; right: 18px; bottom: 18px; display: none; z-index: 2147483647;
+      background: #fff; color: #25312d; border: 1px solid #dce2de; border-radius: 6px;
+      padding: 10px 14px; font-size: 13px; box-shadow: 0 4px 20px #25312d14; }
     .wc-toast.show { display: flex; gap: 10px; align-items: center; }
-    .wc-toast button { background: none; border: 0; color: #3CE5B0; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0; }
+    .wc-toast button { background: transparent; border: 0; color: #35634e; font-size: 12px; text-decoration: underline; padding: 0; }
   `;
 
   let host, shadow, btn, form, toast, toastTimer;
@@ -164,26 +158,28 @@
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      onButton(e);
+      onButton();
     });
 
     form = document.createElement('div');
     form.className = 'wc-form';
+    form.setAttribute('role', 'dialog');
+    form.setAttribute('aria-labelledby', 'wc-title');
     form.innerHTML = `
-      <div class="wc-head"><span>+ Anki</span><button class="wc-x" title="Close">×</button></div>
-      <label>Word / phrase</label><input type="text" class="wc-word">
-      <label>Translation / meaning <button class="wc-rr" title="Try another translation">↻</button></label><input type="text" class="wc-tr" placeholder="optional">
-      <div class="wc-note"></div>
-      <label>Original sentence</label><textarea class="wc-ctx" rows="2"></textarea>
-      <div class="wc-example"></div>
-      <label>Card type</label><select class="wc-type">
-        <option value="basic">Basic (word → meaning)</option>
-        <option value="reverse">Both directions</option>
-        <option value="reverseOnly">Reverse (meaning → word)</option>
-        <option value="cloze">Missing word (cloze)</option>
-      </select>
-      <label>Deck</label><select class="wc-deck"></select>
-      <div class="wc-row"><button class="wc-add">Add</button><span class="wc-status"></span></div>
+      <div class="wc-head"><span id="wc-title">Add to Anki</span><button type="button" class="wc-x" aria-label="Close" title="Close">×</button></div>
+      <label for="wc-word">Estonian</label><input id="wc-word" type="text" class="wc-word" autocomplete="off">
+      <div class="wc-meaning-head"><label for="wc-meaning">Finnish meaning</label><button type="button" class="wc-rr">Translate again</button></div>
+      <input id="wc-meaning" type="text" class="wc-tr" placeholder="Enter a meaning" autocomplete="off">
+      <div class="wc-note" role="status"></div>
+      <label for="wc-deck">Deck</label><select id="wc-deck" class="wc-deck"></select>
+      <details class="wc-options"><summary>More options</summary>
+        <label for="wc-sentence">Original sentence</label><textarea id="wc-sentence" class="wc-ctx" rows="2"></textarea>
+        <label for="wc-type">Card type</label><select id="wc-type" class="wc-type">
+          <option value="basic">Word → meaning</option><option value="reverse">Both directions</option>
+          <option value="reverseOnly">Meaning → word</option><option value="cloze">Missing word</option>
+        </select>
+      </details>
+      <div class="wc-row"><button type="button" class="wc-add">Save to Anki</button><span class="wc-status" role="status"></span></div>
     `;
     form.querySelector('.wc-x').addEventListener('click', closeForm);
     form.querySelector('.wc-add').addEventListener('click', () => submit(false));
@@ -242,7 +238,11 @@
     form.addEventListener('keydown', (e) => {
       e.stopPropagation(); // keep page hotkeys away from our form
       if (e.key === 'Escape') closeForm();
-      if (e.key === 'Enter' && (e.target.tagName !== 'TEXTAREA' || e.ctrlKey)) {
+      if (
+        e.key === 'Enter' &&
+        (e.target.tagName === 'INPUT' ||
+          (e.target.tagName === 'TEXTAREA' && (e.ctrlKey || e.metaKey)))
+      ) {
         e.preventDefault();
         submit(false);
       }
@@ -317,10 +317,10 @@
     q('.wc-word').value = cap.word;
     q('.wc-tr').value = '';
     q('.wc-ctx').value = cap.context;
+    q('.wc-options').open = false;
     q('.wc-note').textContent = '';
-    q('.wc-example').textContent = '';
     setStatus('');
-    const left = Math.max(8, Math.min(cap.rect.left, innerWidth - 336));
+    const left = Math.max(8, Math.min(cap.rect.left, innerWidth - 356));
     const top =
       cap.rect.bottom + 8 + 340 < innerHeight
         ? cap.rect.bottom + 8
@@ -335,6 +335,7 @@
     requestTranslation(cap.word);
 
     const deckSel = q('.wc-deck');
+    q('.wc-add').disabled = true;
     deckSel.innerHTML = '<option>Loading decks…</option>';
     const res = await send({ type: 'GET_DECKS' });
     if (!res.ok) {
@@ -349,6 +350,8 @@
       deckSel.append(o);
     }
     if (res.lastDeck && res.decks.includes(res.lastDeck)) deckSel.value = res.lastDeck;
+    q('.wc-add').disabled = !res.decks.length;
+    if (!res.decks.length) setStatus('Create a deck in Anki, then reopen this form.', true);
     q('.wc-tr').focus();
   }
 
@@ -379,7 +382,7 @@
       avoid,
     });
     if (seq !== translateSeq || !formOpen()) return;
-    tr.placeholder = 'optional';
+    tr.placeholder = 'Enter a meaning';
     if (!res.ok) {
       q('.wc-note').textContent =
         res.message || 'Translation unavailable; you can enter a meaning yourself.';
@@ -392,7 +395,6 @@
       // Keep the original inflection in matchWord and save the dictionary form.
       if (res.headword && !trEdited) q('.wc-word').value = res.headword;
       q('.wc-note').textContent = [aiForms, res.note].filter(Boolean).join(' · ');
-      q('.wc-example').textContent = aiExample;
     }
   }
 
